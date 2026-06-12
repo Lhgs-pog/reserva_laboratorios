@@ -1,0 +1,21 @@
+# Blueprint Render — https://dashboard.render.com → New → Blueprint
+services:
+  - type: web
+    name: labhub-uniceplac
+    runtime: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /index.php
+    envVars:
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        value: aws-1-sa-east-1.pooler.supabase.com
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_DATABASE
+        value: postgres
+      - key: DB_USERNAME
+        value: postgres.vhhwpiabrclicwuvedqw
+      - key: DB_PASSWORD
+        sync: false

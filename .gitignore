@@ -1,0 +1,21 @@
+# Senhas e Configurações sensíveis
+.env
+config.php
+
+# Dependências (O Composer baixa isso depois)
+vendor/
+node_modules/
+
+# Uploads dos usuários (Fotos de perfil, etc)
+uploads/
+public/uploads/
+
+# Supabase / Vercel / Firebase local
+.supabase/
+.vercel/
+.firebase/
+firebase-hosting/.vercel/
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db

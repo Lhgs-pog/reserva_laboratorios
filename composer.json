@@ -1,0 +1,11 @@
+{
+    "config": {
+    },
+    "require": {
+        "google/apiclient": "^2.15",
+        "monolog/monolog": "^2.9",
+        "illuminate/database": "^10.0",
+        "illuminate/events": "^10.0",
+        "illuminate/http": "^10.0"
+    }
+}
