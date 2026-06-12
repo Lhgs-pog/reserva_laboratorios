@@ -1,5 +1,7 @@
 # Senhas e Configurações sensíveis
 .env
+.env.local
+.env*.local
 config.php
 
 # Dependências (O Composer baixa isso depois)

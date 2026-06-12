@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+:root {
+  --azul-uniceplac: #00734f;
+  --amarelo-uniceplac: #f07f3c;
+  --background: #f0f2f5;
+  --foreground: #1a1a1a;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.text-uniceplac {
+  color: var(--azul-uniceplac);
+}
+
+.bg-uniceplac {
+  background-color: var(--azul-uniceplac);
+}
+
+.border-uniceplac {
+  border-color: var(--amarelo-uniceplac);
+}
+
+.btn-uniceplac {
+  background-color: var(--azul-uniceplac);
+  color: white;
+  font-weight: 600;
+  border: none;
+  transition: background-color 0.2s;
+}
+
+.btn-uniceplac:hover {
+  background-color: #045238;
+  color: var(--amarelo-uniceplac);
+}
+
+.card-uniceplac {
+  border-top: 6px solid var(--amarelo-uniceplac);
+  border-radius: 12px;
+}
+
+.demo-badge {
+  background: var(--amarelo-uniceplac);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+.sidebar {
+  background: var(--azul-uniceplac);
+  min-height: calc(100vh - 56px);
+}
+
+.sidebar-link {
+  color: rgba(255, 255, 255, 0.85);
+  display: block;
+  padding: 12px 20px;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.sidebar-link:hover,
+.sidebar-link.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.card-top {
+  border-top: 4px solid var(--amarelo-uniceplac);
+  border-radius: 8px;
+}
