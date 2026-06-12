@@ -1,0 +1,26 @@
+# Senhas e Configurações sensíveis
+.env
+.env.local
+.env*.local
+config.php
+
+# Dependências (O Composer baixa isso depois)
+vendor/
+node_modules/
+
+# Uploads dos usuários (Fotos de perfil, etc)
+uploads/
+public/uploads/
+
+# Supabase local CLI
+.supabase/
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db
+
+# Backups locais / referência
+temp/
+reserva_laboratorios 2/
+*.dmg
+*.pdf

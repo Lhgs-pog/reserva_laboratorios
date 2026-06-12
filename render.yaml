@@ -1,0 +1,25 @@
+# Blueprint Render — PHP Docker + Supabase PostgreSQL
+services:
+  - type: web
+    name: labhub-uniceplac
+    runtime: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /index.php
+    envVars:
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        value: aws-0-sa-east-1.pooler.supabase.com
+      - key: DB_PORT
+        value: "6543"
+      - key: DB_SSLMODE
+        value: require
+      - key: DB_DATABASE
+        value: postgres
+      - key: DB_USERNAME
+        value: postgres.eqawtpbvcqlcemysjkox
+      - key: DB_PASSWORD
+        sync: false
+      - key: APP_ENV
+        value: production

@@ -1,0 +1,13 @@
+temp/
+reserva_laboratorios 2/
+web/
+node_modules/
+vendor/
+uploads/
+.env
+.env.local
+.env*.local
+.vercel/
+.supabase/
+*.dmg
+*.pdf
