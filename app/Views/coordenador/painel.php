@@ -85,6 +85,69 @@
             border-right: 4px solid var(--verde-uniceplac);
         }
 
+        .offcanvas-menu-ti-toggle {
+            padding: 12px 20px;
+            margin: 0;
+            width: 100%;
+            border: none;
+            border-bottom: 1px solid #f1f1f1;
+            border-left: 4px solid var(--laranja-uniceplac);
+            background: rgba(240, 115, 60, 0.08);
+            color: #333 !important;
+            font-weight: 600;
+            font-size: inherit;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .offcanvas-menu-ti-toggle:hover,
+        .offcanvas-menu-ti-toggle[aria-expanded="true"] {
+            background: rgba(240, 115, 60, 0.16);
+            color: var(--verde-uniceplac) !important;
+        }
+
+        .offcanvas-menu-ti-toggle .bi-headset {
+            color: var(--laranja-uniceplac);
+        }
+
+        .offcanvas-menu-chevron {
+            font-size: 0.8rem;
+            opacity: 0.65;
+            transition: transform 0.25s ease;
+        }
+
+        .offcanvas-submenu {
+            border-bottom: 1px solid #f1f1f1;
+            background: #fafafa;
+        }
+
+        .offcanvas-submenu-link {
+            padding-left: 2.75rem !important;
+            font-size: 0.92rem;
+        }
+
+        [data-bs-theme="dark"] .offcanvas-menu-ti-toggle {
+            background: rgba(240, 115, 60, 0.12);
+            color: #f0f0f0 !important;
+            border-bottom-color: #333;
+        }
+
+        [data-bs-theme="dark"] .offcanvas-menu-ti-toggle:hover,
+        [data-bs-theme="dark"] .offcanvas-menu-ti-toggle[aria-expanded="true"] {
+            background: rgba(240, 115, 60, 0.22);
+            color: #fff !important;
+        }
+
+        [data-bs-theme="dark"] .offcanvas-submenu {
+            background: #252525;
+            border-bottom-color: #333;
+        }
+
         .avatar-img-small {
             width: 40px;
             height: 40px;
@@ -748,20 +811,16 @@
 
                 <div class="p-3 text-muted small fw-bold text-uppercase opacity-50 border-top mt-2">Visão Operacional
                 </div>
-                <div class="fw-bold text-dark d-flex justify-content-between align-items-center p-3"
-                    onclick="abrirSanfona('dropMenuTI', 'setaDropTI')"
-                    style="background-color: #fff3cd; border-left: 4px solid #ffc107; cursor: pointer; transition: 0.3s;">
-                    <span><i class="bi bi-headset text-warning me-2 fs-5"></i> Menu de TI</span>
-                    <i class="bi bi-chevron-down transition-transform text-muted" id="setaDropTI"
-                        style="transition: transform 0.3s ease;"></i>
-                </div>
-                <div id="dropMenuTI" style="display: none;">
-                    <div class="bg-light border-start border-4 border-warning ms-3 mb-2">
-                        <a href="painel_suporte.php" class="p-3 text-muted d-block text-decoration-none fw-bold"
-                            onmouseover="this.style.backgroundColor='rgba(0,0,0,0.05)'"
-                            onmouseout="this.style.backgroundColor='transparent'"><i
-                                class="bi bi-ticket-detailed me-2"></i> Acessar Painel TI</a>
-                    </div>
+                <button type="button" class="offcanvas-menu-ti-toggle" id="btnMenuTI"
+                    onclick="abrirSanfona('dropMenuTI', 'setaDropTI')" aria-expanded="false" aria-controls="dropMenuTI">
+                    <span><i class="bi bi-headset me-2 fs-5"></i> Menu de TI</span>
+                    <i class="bi bi-chevron-down offcanvas-menu-chevron" id="setaDropTI"></i>
+                </button>
+                <div id="dropMenuTI" class="offcanvas-submenu" style="display: none;">
+                    <a href="painel_suporte.php" data-bs-dismiss="offcanvas"
+                        class="offcanvas-menu-link offcanvas-submenu-link">
+                        <i class="bi bi-ticket-detailed me-2"></i> Acessar Painel TI
+                    </a>
                 </div>
             </div>
             <div class="p-3 border-top mt-auto"><a href="logout.php"
@@ -971,13 +1030,13 @@
         window.abrirSanfona = function (caixaId, setaId) {
             let caixa = document.getElementById(caixaId);
             let seta = document.getElementById(setaId);
+            const btn = document.getElementById('btnMenuTI');
+            const abrir = caixa.style.display === 'none' || caixa.style.display === '';
 
-            if (caixa.style.display === 'none' || caixa.style.display === '') {
-                caixa.style.display = 'block';
-                if (seta) seta.style.transform = 'rotate(180deg)';
-            } else {
-                caixa.style.display = 'none';
-                if (seta) seta.style.transform = 'rotate(0deg)';
+            caixa.style.display = abrir ? 'block' : 'none';
+            if (seta) seta.style.transform = abrir ? 'rotate(180deg)' : 'rotate(0deg)';
+            if (btn && caixaId === 'dropMenuTI') {
+                btn.setAttribute('aria-expanded', abrir ? 'true' : 'false');
             }
         };
 
