@@ -58,6 +58,12 @@ jobs:
         with:
           version: latest
 
+      - name: Link Supabase
+        run: supabase link --project-ref eqawtpbvcqlcemysjkox --password "$SUPABASE_DB_PASSWORD"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
       - name: Aplicar migrations Supabase
         run: supabase db push
         env:
