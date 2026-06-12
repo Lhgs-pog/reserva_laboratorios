@@ -263,6 +263,7 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="css/notificacoes-nav.css">
     <link rel="stylesheet" href="css/labhub-alerts.css">
+    <script>
         const savedTheme = localStorage.getItem('tema-uniceplac') || 'light';
         document.documentElement.setAttribute('data-bs-theme', savedTheme);
     </script>
