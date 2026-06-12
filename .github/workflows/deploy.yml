@@ -38,12 +38,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy Vercel
+      - name: Deploy Vercel (projeto labhub-uniceplac — NÃO venuse.com.br)
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-project-name: labhub-uniceplac
           working-directory: ./web
           vercel-args: "--prod"
 
