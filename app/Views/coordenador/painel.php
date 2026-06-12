@@ -129,6 +129,8 @@
         .offcanvas-submenu-link {
             padding-left: 2.75rem !important;
             font-size: 0.92rem;
+            position: relative;
+            z-index: 1;
         }
 
         [data-bs-theme="dark"] .offcanvas-menu-ti-toggle {
@@ -836,8 +838,9 @@
                     <i class="bi bi-chevron-down offcanvas-menu-chevron" id="setaDropTI"></i>
                 </button>
                 <div id="dropMenuTI" class="offcanvas-submenu" style="display: none;">
-                    <a href="painel_suporte.php" data-bs-dismiss="offcanvas"
-                        class="offcanvas-menu-link offcanvas-submenu-link">
+                    <a href="painel_suporte.php"
+                        class="offcanvas-menu-link offcanvas-submenu-link"
+                        onclick="window.location.assign('painel_suporte.php'); return false;">
                         <i class="bi bi-ticket-detailed me-2"></i> Acessar Painel TI
                     </a>
                 </div>
