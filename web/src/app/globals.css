@@ -1,27 +1,15 @@
-@import "tailwindcss";
-
 :root {
   --azul-uniceplac: #00734f;
   --amarelo-uniceplac: #f07f3c;
-  --background: #f0f2f5;
-  --foreground: #1a1a1a;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background-color: #f0f2f5;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .text-uniceplac {
-  color: var(--azul-uniceplac);
-}
-
-.bg-uniceplac {
-  background-color: var(--azul-uniceplac);
-}
-
-.border-uniceplac {
-  border-color: var(--amarelo-uniceplac);
+  color: var(--azul-uniceplac) !important;
 }
 
 .btn-uniceplac {
@@ -29,7 +17,7 @@ body {
   color: white;
   font-weight: 600;
   border: none;
-  transition: background-color 0.2s;
+  transition: 0.3s;
 }
 
 .btn-uniceplac:hover {
@@ -38,34 +26,76 @@ body {
 }
 
 .card-uniceplac {
+  border: none;
   border-top: 6px solid var(--amarelo-uniceplac);
   border-radius: 12px;
 }
 
-.demo-badge {
-  background: var(--amarelo-uniceplac);
-  color: #fff;
-  font-size: 0.75rem;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-weight: 600;
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background-color: #ffffff;
+  color: #444;
+  border: 1px solid #dadce0;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.2s;
+  text-decoration: none;
+  padding: 0.5rem;
 }
 
-.sidebar {
+.btn-google:hover {
+  background-color: #f8f9fa;
+  border-color: #d2e3fc;
+  box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3);
+  color: #222;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 25px 0;
+  color: #888;
+  font-size: 0.85em;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid #ddd;
+}
+
+.divider::before {
+  margin-right: 1em;
+}
+
+.divider::after {
+  margin-left: 1em;
+}
+
+.navbar-brand-uniceplac {
+  color: var(--azul-uniceplac) !important;
+  font-weight: 700;
+}
+
+.sidebar-uniceplac {
   background: var(--azul-uniceplac);
   min-height: calc(100vh - 56px);
 }
 
-.sidebar-link {
+.sidebar-uniceplac a {
   color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
   display: block;
   padding: 12px 20px;
-  text-decoration: none;
-  transition: background 0.2s;
 }
 
-.sidebar-link:hover,
-.sidebar-link.active {
+.sidebar-uniceplac a:hover,
+.sidebar-uniceplac a.active {
   background: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
@@ -73,4 +103,8 @@ body {
 .card-top {
   border-top: 4px solid var(--amarelo-uniceplac);
   border-radius: 8px;
+}
+
+.badge-ok {
+  background: var(--azul-uniceplac);
 }

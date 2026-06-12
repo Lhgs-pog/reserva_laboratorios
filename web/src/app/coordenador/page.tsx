@@ -1,87 +1,122 @@
-"use client";
+import Link from "next/link";
 
-import { useEffect, useState } from "react";
-import { createClient, type Agendamento } from "@/lib/supabase";
-import { PainelLayout, StatCard, StatusBadge, LoadingState, formatDate } from "@/components/PainelLayout";
+const solicitacoes = [
+  {
+    professor: "Prof. João",
+    lab: "Lab. Informática 01",
+    data: "15/06",
+    turno: "Noturno",
+  },
+  {
+    professor: "Prof. Maria",
+    lab: "Lab. Química",
+    data: "17/06",
+    turno: "Vespertino",
+  },
+];
 
 export default function CoordenadorPage() {
-  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    createClient()
-      .from("agendamentos")
-      .select("*, laboratorios(nome), disciplinas(nome), usuarios(nome, email)")
-      .order("data_reserva", { ascending: false })
-      .then(({ data }) => {
-        setAgendamentos((data as Agendamento[]) ?? []);
-        setLoading(false);
-      });
-  }, []);
-
-  async function atualizarStatus(id: number, status: "aprovado" | "rejeitado") {
-    const supabase = createClient();
-    await supabase.from("agendamentos").update({ status }).eq("id", id);
-    setAgendamentos((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
-  }
-
-  const pendentes = agendamentos.filter((a) => a.status === "pendente").length;
-
   return (
-    <PainelLayout titulo="Coordenador" usuario="Administrador" perfil="Coordenador">
-      {loading ? (
-        <LoadingState />
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <StatCard label="Total de reservas" value={agendamentos.length} />
-            <StatCard label="Aguardando aprovação" value={pendentes} color="text-yellow-600" />
-            <StatCard
-              label="Aprovadas"
-              value={agendamentos.filter((a) => a.status === "aprovado").length}
-              color="text-green-600"
-            />
+    <>
+      <nav className="navbar navbar-light bg-white shadow-sm">
+        <div className="container-fluid px-4">
+          <Link className="navbar-brand navbar-brand-uniceplac" href="/">
+            LabHub — Coordenação
+          </Link>
+          <span className="small text-muted me-3">Coord. Carlos Mendes</span>
+          <Link href="/" className="btn btn-sm btn-outline-secondary">
+            Sair
+          </Link>
+        </div>
+      </nav>
+
+      <div className="container-fluid">
+        <div className="row">
+          <div className="col-md-3 sidebar-uniceplac py-3">
+            <a href="#" className="active">
+              <i className="bi bi-grid me-2" />
+              Dashboard
+            </a>
+            <a href="#">
+              <i className="bi bi-check2-square me-2" />
+              Aprovar Reservas
+            </a>
+            <a href="#">
+              <i className="bi bi-pc-display me-2" />
+              Laboratórios
+            </a>
+            <a href="#">
+              <i className="bi bi-book me-2" />
+              Disciplinas
+            </a>
+            <a href="#">
+              <i className="bi bi-calendar-range me-2" />
+              Quadro de Horários
+            </a>
+            <a href="#">
+              <i className="bi bi-bar-chart me-2" />
+              Relatórios
+            </a>
           </div>
 
-          <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-            <div className="px-4 py-3 border-b font-semibold">Gestão de reservas</div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
+          <div className="col-md-9 p-4">
+            <h4 className="mb-4 text-uniceplac">Painel do Coordenador</h4>
+
+            <div className="row g-3 mb-4">
+              <div className="col-md-3">
+                <div className="card shadow-sm p-3">
+                  <small className="text-muted">Labs cadastrados</small>
+                  <h4>8</h4>
+                </div>
+              </div>
+              <div className="col-md-3">
+                <div className="card shadow-sm p-3">
+                  <small className="text-muted">Reservas pendentes</small>
+                  <h4 className="text-warning">4</h4>
+                </div>
+              </div>
+              <div className="col-md-3">
+                <div className="card shadow-sm p-3">
+                  <small className="text-muted">Professores ativos</small>
+                  <h4>24</h4>
+                </div>
+              </div>
+              <div className="col-md-3">
+                <div className="card shadow-sm p-3">
+                  <small className="text-muted">SOS abertos</small>
+                  <h4 className="text-danger">1</h4>
+                </div>
+              </div>
+            </div>
+
+            <div className="card shadow-sm">
+              <div className="card-header bg-white fw-bold">
+                Solicitações aguardando aprovação
+              </div>
+              <table className="table mb-0">
+                <thead className="table-light">
                   <tr>
-                    <th className="text-left p-3">Data</th>
-                    <th className="text-left p-3">Professor</th>
-                    <th className="text-left p-3">Lab</th>
-                    <th className="text-left p-3">Disciplina</th>
-                    <th className="text-left p-3">Status</th>
-                    <th className="text-left p-3">Ações</th>
+                    <th>Professor</th>
+                    <th>Lab</th>
+                    <th>Data</th>
+                    <th>Turno</th>
+                    <th>Ação</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {agendamentos.map((a) => (
-                    <tr key={a.id} className="border-t hover:bg-gray-50">
-                      <td className="p-3">{formatDate(a.data_reserva)}</td>
-                      <td className="p-3">{a.usuarios?.nome ?? "—"}</td>
-                      <td className="p-3">{a.laboratorios?.nome ?? "—"}</td>
-                      <td className="p-3">{a.disciplinas?.nome ?? "—"}</td>
-                      <td className="p-3"><StatusBadge status={a.status} /></td>
-                      <td className="p-3 space-x-2">
-                        {a.status === "pendente" && (
-                          <>
-                            <button
-                              onClick={() => atualizarStatus(a.id, "aprovado")}
-                              className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-                            >
-                              Aprovar
-                            </button>
-                            <button
-                              onClick={() => atualizarStatus(a.id, "rejeitado")}
-                              className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-                            >
-                              Rejeitar
-                            </button>
-                          </>
-                        )}
+                  {solicitacoes.map((s) => (
+                    <tr key={s.professor + s.data}>
+                      <td>{s.professor}</td>
+                      <td>{s.lab}</td>
+                      <td>{s.data}</td>
+                      <td>{s.turno}</td>
+                      <td>
+                        <button type="button" className="btn btn-sm btn-success me-1">
+                          Aprovar
+                        </button>
+                        <button type="button" className="btn btn-sm btn-outline-danger">
+                          Recusar
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -89,8 +124,8 @@ export default function CoordenadorPage() {
               </table>
             </div>
           </div>
-        </>
-      )}
-    </PainelLayout>
+        </div>
+      </div>
+    </>
   );
 }

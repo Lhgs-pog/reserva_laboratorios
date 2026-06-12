@@ -1,96 +1,149 @@
-"use client";
+import Link from "next/link";
 
-import { useEffect, useState } from "react";
-import { createClient, type Agendamento } from "@/lib/supabase";
-import { PainelLayout, StatCard, StatusBadge, LoadingState, formatDate } from "@/components/PainelLayout";
+const reservas = [
+  {
+    data: "12/06/2026",
+    lab: "Lab. Informática 01",
+    turno: "Noturno",
+    periodo: "1º Horário",
+    disciplina: "Programação Web",
+    status: "Aprovado",
+    badge: "badge-ok",
+  },
+  {
+    data: "14/06/2026",
+    lab: "Lab. Redes",
+    turno: "Noturno",
+    periodo: "2º Horário",
+    disciplina: "Redes de Computadores",
+    status: "Pendente",
+    badge: "bg-warning text-dark",
+  },
+  {
+    data: "16/06/2026",
+    lab: "Lab. Informática 02",
+    turno: "Noturno",
+    periodo: "1º e 2º",
+    disciplina: "Banco de Dados",
+    status: "Aprovado",
+    badge: "badge-ok",
+  },
+];
 
 export default function ProfessorPage() {
-  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      const supabase = createClient();
-      const { data: usuario } = await supabase
-        .from("usuarios")
-        .select("id")
-        .eq("email", "professor@uniceplac.edu.br")
-        .single();
-
-      let query = supabase
-        .from("agendamentos")
-        .select("*, laboratorios(nome), disciplinas(nome), usuarios(nome, email)")
-        .order("data_reserva", { ascending: true });
-
-      if (usuario?.id) {
-        query = query.eq("id_professor", usuario.id);
-      }
-
-      const { data } = await query;
-      setAgendamentos((data as Agendamento[]) ?? []);
-      setLoading(false);
-    }
-    load();
-  }, []);
-
-  const aprovados = agendamentos.filter((a) => a.status === "aprovado").length;
-  const pendentes = agendamentos.filter((a) => a.status === "pendente").length;
-
   return (
-    <PainelLayout titulo="Professor" usuario="Prof. Ana Silva" perfil="Demo">
-      {loading ? (
-        <LoadingState />
-      ) : (
-        <>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 text-green-800">
-            Bem-vindo, <strong>Prof. Ana Silva</strong>! Reservas sincronizadas com Supabase em tempo real.
+    <>
+      <nav className="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div className="container-fluid px-4">
+          <Link className="navbar-brand navbar-brand-uniceplac" href="/">
+            <i className="bi bi-building me-2" />
+            LabHub UNICEPLAC
+          </Link>
+          <span className="text-muted small me-3">
+            <i className="bi bi-person-circle me-1" />
+            Prof. Ana Silva
+          </span>
+          <Link href="/" className="btn btn-sm btn-outline-secondary">
+            Sair
+          </Link>
+        </div>
+      </nav>
+
+      <div className="container-fluid">
+        <div className="row">
+          <div className="col-md-3 col-lg-2 sidebar-uniceplac py-3">
+            <a href="#" className="active">
+              <i className="bi bi-calendar3 me-2" />
+              Calendário de Reservas
+            </a>
+            <a href="#">
+              <i className="bi bi-plus-circle me-2" />
+              Nova Reserva
+            </a>
+            <a href="#">
+              <i className="bi bi-key me-2" />
+              Controle de Chaves
+            </a>
+            <a href="#">
+              <i className="bi bi-bell me-2" />
+              Chamados SOS
+            </a>
+            <a href="#">
+              <i className="bi bi-person me-2" />
+              Meu Perfil
+            </a>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <StatCard label="Reservas aprovadas" value={aprovados} color="text-green-600" />
-            <StatCard label="Pendentes" value={pendentes} color="text-yellow-600" />
-            <StatCard label="Total" value={agendamentos.length} />
-          </div>
+          <div className="col-md-9 col-lg-10 p-4">
+            <div className="alert alert-success border-0 shadow-sm">
+              <i className="bi bi-check-circle me-2" />
+              Bem-vindo, <strong>Prof. Ana Silva</strong>! Sistema de reservas de laboratórios.
+            </div>
 
-          <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-            <div className="px-4 py-3 border-b font-semibold">Minhas reservas</div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-left p-3">Data</th>
-                    <th className="text-left p-3">Laboratório</th>
-                    <th className="text-left p-3">Turno</th>
-                    <th className="text-left p-3">Período</th>
-                    <th className="text-left p-3">Disciplina</th>
-                    <th className="text-left p-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {agendamentos.length === 0 ? (
+            <div className="row g-3 mb-4">
+              <div className="col-md-4">
+                <div className="card card-top shadow-sm">
+                  <div className="card-body">
+                    <h6 className="text-muted">Reservas aprovadas</h6>
+                    <h3 className="text-success mb-0">5</h3>
+                  </div>
+                </div>
+              </div>
+              <div className="col-md-4">
+                <div className="card card-top shadow-sm">
+                  <div className="card-body">
+                    <h6 className="text-muted">Pendentes</h6>
+                    <h3 className="text-warning mb-0">2</h3>
+                  </div>
+                </div>
+              </div>
+              <div className="col-md-4">
+                <div className="card card-top shadow-sm">
+                  <div className="card-body">
+                    <h6 className="text-muted">Labs disponíveis hoje</h6>
+                    <h3 className="mb-0 text-uniceplac">3</h3>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="card shadow-sm">
+              <div className="card-header bg-white fw-bold">
+                <i className="bi bi-calendar-week me-2" />
+                Minhas reservas — Junho 2026
+              </div>
+              <div className="table-responsive">
+                <table className="table table-hover mb-0">
+                  <thead className="table-light">
                     <tr>
-                      <td colSpan={6} className="p-6 text-center text-gray-500">
-                        Nenhuma reserva encontrada.
-                      </td>
+                      <th>Data</th>
+                      <th>Laboratório</th>
+                      <th>Turno</th>
+                      <th>Período</th>
+                      <th>Disciplina</th>
+                      <th>Status</th>
                     </tr>
-                  ) : (
-                    agendamentos.map((a) => (
-                      <tr key={a.id} className="border-t hover:bg-gray-50">
-                        <td className="p-3">{formatDate(a.data_reserva)}</td>
-                        <td className="p-3">{a.laboratorios?.nome ?? "—"}</td>
-                        <td className="p-3">{a.turno}</td>
-                        <td className="p-3">{a.periodo}</td>
-                        <td className="p-3">{a.disciplinas?.nome ?? "—"}</td>
-                        <td className="p-3"><StatusBadge status={a.status} /></td>
+                  </thead>
+                  <tbody>
+                    {reservas.map((r) => (
+                      <tr key={r.data + r.lab}>
+                        <td>{r.data}</td>
+                        <td>{r.lab}</td>
+                        <td>{r.turno}</td>
+                        <td>{r.periodo}</td>
+                        <td>{r.disciplina}</td>
+                        <td>
+                          <span className={`badge ${r.badge}`}>{r.status}</span>
+                        </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </>
-      )}
-    </PainelLayout>
+        </div>
+      </div>
+    </>
   );
 }
