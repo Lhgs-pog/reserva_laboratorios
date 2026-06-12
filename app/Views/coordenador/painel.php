@@ -716,7 +716,7 @@
                     Métricas</a>
 
                 <div class="p-3 text-muted small fw-bold text-uppercase opacity-50">Gestão Dinâmica</div>
-                <a href="javascript:void(0);" onclick="showSection('sessao-historico-geral')" data-bs-dismiss="offcanvas"
+                <a href="javascript:void(0);" onclick="abrirSolicitacoesPendentes()" data-bs-dismiss="offcanvas"
                     class="offcanvas-menu-link fw-bold" style="color: #dc3545;">
                     <i class="bi bi-bell-fill text-danger me-2"></i> Solicitações Pendentes
                     <span id="badge-pendentes-menu" class="badge bg-danger ms-2 <?= $qtd_pendentes > 0 ? '' : 'd-none' ?>"><?= $qtd_pendentes ?></span>
@@ -870,8 +870,12 @@
             document.querySelectorAll('.content-section').forEach(sec => sec.style.display = 'none');
             document.querySelectorAll('.offcanvas-menu-link').forEach(link => link.classList.remove('active-link'));
             const targetSection = document.getElementById(sectionId);
-            if (targetSection) {
-                targetSection.style.display = 'block';
+            if (!targetSection) {
+                sectionId = 'sessao-calendario-geral';
+            }
+            const section = document.getElementById(sectionId);
+            if (section) {
+                section.style.display = 'block';
                 const activeLink = document.querySelector(`.offcanvas-menu-link[onclick*="${sectionId}"]`);
                 if (activeLink) activeLink.classList.add('active-link');
                 window.history.replaceState(null, null, '#' + sectionId);
@@ -944,16 +948,24 @@
             }
         };
 
-        window.abrirSolicitacoesPendentes = function () {
+        window.abrirSolicitacoesPendentes = function (item) {
             showSection('sessao-historico-geral');
-            const container = document.getElementById('container-tabela-historico-geral');
-            if (container) {
-                container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-            const primeiraPendente = document.querySelector('#sessao-historico-geral tr .badge.bg-warning');
-            if (primeiraPendente) {
-                primeiraPendente.closest('tr').scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
+            setTimeout(function () {
+                let row = null;
+                if (item && item.id) {
+                    row = document.querySelector('#sessao-historico-geral tr[data-reserva-id="' + item.id + '"]');
+                }
+                if (!row) {
+                    const badge = document.querySelector('#sessao-historico-geral tr .badge.bg-warning');
+                    if (badge) row = badge.closest('tr');
+                }
+                if (row && typeof window.destacarLinhaNotificacao === 'function') {
+                    window.destacarLinhaNotificacao(row);
+                } else {
+                    const container = document.getElementById('container-tabela-historico-geral');
+                    if (container) container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 120);
         };
 
         window.abrirSanfona = function (caixaId, setaId) {

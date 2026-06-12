@@ -10,6 +10,15 @@
             .replace(/"/g, '&quot;');
     }
 
+    window.destacarLinhaNotificacao = function (row) {
+        if (!row) return;
+        row.classList.add('table-warning');
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(function () {
+            row.classList.remove('table-warning');
+        }, 3500);
+    };
+
     window.initNotificacoesNav = function (options) {
         options = options || {};
         const bell = document.getElementById('navBell');
@@ -26,6 +35,7 @@
         const badgeIds = ['badge-nav-bell'].concat(options.badgeIds || []);
         let aberto = false;
         let qtdAnterior = 0;
+        let ultimosItems = [];
         const somUrl = options.somUrl || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
         const som = options.playSound ? new Audio(somUrl) : null;
 
@@ -41,6 +51,7 @@
         }
 
         function renderLista(items) {
+            ultimosItems = items || [];
             if (!items || items.length === 0) {
                 lista.innerHTML = '<div class="notif-empty"><i class="bi bi-check-circle"></i>Nenhuma notificação no momento</div>';
                 return;
@@ -49,8 +60,9 @@
             lista.innerHTML = items.map(function (item) {
                 const color = item.color || 'warning';
                 const icon = item.icon || 'bi-bell';
+                const tipo = item.tipo || 'geral';
                 return (
-                    '<button type="button" class="notif-item" data-notif-id="' + item.id + '">' +
+                    '<button type="button" class="notif-item" data-notif-id="' + item.id + '" data-notif-tipo="' + escapeHtml(tipo) + '">' +
                     '<span class="notif-item-icon bg-' + color + '"><i class="bi ' + icon + '"></i></span>' +
                     '<span class="notif-item-body">' +
                     '<strong>' + escapeHtml(item.titulo) + '</strong>' +
@@ -63,16 +75,23 @@
 
             lista.querySelectorAll('.notif-item').forEach(function (btn) {
                 btn.addEventListener('click', function () {
+                    const id = parseInt(btn.getAttribute('data-notif-id'), 10);
+                    const tipo = btn.getAttribute('data-notif-tipo') || 'geral';
+                    const item = ultimosItems.find(function (i) { return i.id === id; }) || { id: id, tipo: tipo };
                     fecharPopup();
-                    executarVerTodas();
+                    executarAcao(item);
                 });
             });
         }
 
-        function executarVerTodas() {
+        function executarAcao(item) {
+            if (options.onItemClick && typeof options.onItemClick === 'function') {
+                options.onItemClick(item);
+                return;
+            }
             const fn = options.verTodasFn;
             if (fn && typeof window[fn] === 'function') {
-                window[fn]();
+                window[fn](item);
             }
         }
 
@@ -126,7 +145,7 @@
         if (btnVerTodas) btnVerTodas.addEventListener('click', function (e) {
             e.stopPropagation();
             fecharPopup();
-            executarVerTodas();
+            executarAcao(null);
         });
 
         document.addEventListener('click', function (e) {

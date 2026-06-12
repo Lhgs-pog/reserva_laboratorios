@@ -790,7 +790,7 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
                                     <thead class="table-light sticky-top"><tr><th class="ps-4 py-3">Data</th><th>Turno/Horário</th><th>Laboratório</th><th>Disciplina</th><th class="pe-4">Status</th></tr></thead>
                                     <tbody>
                                         <?php foreach ($minhas_alocacoes as $linha): ?>
-                                            <tr>
+                                            <tr data-reserva-id="<?= (int) $linha['id'] ?>">
                                                 <td class="ps-4"><strong><?= date('d/m/Y', strtotime($linha['data_reserva'])) ?></strong></td>
                                                 <td><?= htmlspecialchars($linha['turno']) ?> <br><small class="text-muted"><?= htmlspecialchars($linha['periodo']) ?></small></td>
                                                 <td class="fw-bold text-dark"><?= htmlspecialchars($linha['laboratorio']) ?></td>
@@ -895,10 +895,24 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
         }
         window.showSection = showSection;
 
-        function abrirHistoricoSolicitacoes() {
+        function abrirHistoricoSolicitacoes(item) {
             showSection('sessao-historico');
-            const secao = document.getElementById('sessao-historico');
-            if (secao) secao.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(function () {
+                let row = null;
+                if (item && item.id) {
+                    row = document.querySelector('#sessao-historico tr[data-reserva-id="' + item.id + '"]');
+                }
+                if (!row) {
+                    const badge = document.querySelector('#sessao-historico tr .badge.bg-warning');
+                    if (badge) row = badge.closest('tr');
+                }
+                if (row && typeof window.destacarLinhaNotificacao === 'function') {
+                    window.destacarLinhaNotificacao(row);
+                } else {
+                    const secao = document.getElementById('sessao-historico');
+                    if (secao) secao.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 120);
         }
         window.abrirHistoricoSolicitacoes = abrirHistoricoSolicitacoes;
 

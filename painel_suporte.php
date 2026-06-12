@@ -465,7 +465,7 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
                                 </thead>
                                 <tbody>
                                     <?php foreach ($alertas_suporte as $ch): ?>
-                                        <tr class="border-start border-3 border-danger">
+                                        <tr class="border-start border-3 border-danger" data-sos-id="<?= (int) $ch['id'] ?>">
                                             <td class="ps-4"><strong><?= date('d/m H:i', strtotime($ch['data_hora'])) ?></strong></td>
                                             <td><?= htmlspecialchars($ch['professor_nome']) ?></td>
                                             <td class="fw-bold text-dark"><?= htmlspecialchars($ch['laboratorio']) ?></td>
@@ -734,14 +734,28 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
             }
         }
 
-        function abrirSosAtivos() {
-            showSection('sessao-sos-ativos');
-            const secao = document.getElementById('sessao-sos-ativos');
-            if (secao) secao.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        function abrirSosAtivos(item) {
+            showSection('sessao-sos-ativos', false);
+            setTimeout(function () {
+                let row = null;
+                if (item && item.id) {
+                    row = document.querySelector('#sessao-sos-ativos tr[data-sos-id="' + item.id + '"]');
+                }
+                if (!row) {
+                    row = document.querySelector('#sessao-sos-ativos tbody tr');
+                }
+                if (row && typeof window.destacarLinhaNotificacao === 'function') {
+                    window.destacarLinhaNotificacao(row);
+                } else {
+                    const secao = document.getElementById('sessao-sos-ativos');
+                    if (secao) secao.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 120);
         }
         window.abrirSosAtivos = abrirSosAtivos;
 
-        function showSection(sectionId) {
+        function showSection(sectionId, scrollTop) {
+            if (scrollTop === undefined) scrollTop = true;
             document.querySelectorAll('.content-section').forEach(sec => sec.style.display = 'none');
             document.querySelectorAll('.offcanvas-menu-link').forEach(link => link.classList.remove('active-link'));
             const target = document.getElementById(sectionId);
@@ -750,7 +764,9 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
                 const activeLink = document.querySelector(`.offcanvas-menu-link[href="#${sectionId}"]`);
                 if (activeLink) activeLink.classList.add('active-link');
                 window.history.replaceState(null, null, '#' + sectionId);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                if (scrollTop) {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
             }
         }
         window.showSection = showSection;

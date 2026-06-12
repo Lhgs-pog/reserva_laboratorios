@@ -22,7 +22,7 @@
                             <tbody>
                                 <?php if (count($historico_completo) > 0): ?>
                                     <?php foreach ($historico_completo as $h): ?>
-                                        <tr>
+                                        <tr data-reserva-id="<?= (int) $h['id'] ?>">
                                             <td class="ps-4">
                                                 <strong><?= date('d/m/Y', strtotime($h['data_reserva'])) ?></strong>
                                             </td>
