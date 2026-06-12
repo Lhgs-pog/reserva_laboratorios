@@ -21,6 +21,7 @@ docker compose up --build
 1. https://dashboard.render.com → serviço `labhub-uniceplac`
 2. Conectado ao repo GitHub — deploy automático a cada push na `main`
 3. Variável `DB_PASSWORD` = senha do Supabase
+4. **DB_HOST** deve ser `aws-1-sa-east-1.pooler.supabase.com` (não `aws-0`) — copie do dashboard Supabase se mudar
 
 ## Logins demo (senha: `password`)
 

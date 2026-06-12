@@ -10,9 +10,9 @@ services:
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
-        value: aws-0-sa-east-1.pooler.supabase.com
+        value: aws-1-sa-east-1.pooler.supabase.com
       - key: DB_PORT
-        value: "6543"
+        value: "5432"
       - key: DB_SSLMODE
         value: require
       - key: DB_DATABASE
