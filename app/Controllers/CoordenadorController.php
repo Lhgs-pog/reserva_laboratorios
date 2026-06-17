@@ -656,11 +656,39 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 $foto_atual = app_foto_perfil_usuario($pdo, (int) $id_usuario_logado);
 
+$aba_ativa = $aba_redirect !== '' ? $aba_redirect : trim((string) ($_GET['aba'] ?? 'sessao-calendario-geral'));
+$painel_rapido = app_is_fast_panel();
+$carregar_relatorios = !$painel_rapido || $aba_ativa === 'sessao-relatorios';
+$carregar_historico  = !$painel_rapido || $aba_ativa === 'sessao-historico-geral';
+
 // --- BUSCAS DE DADOS GERAIS ---
 $reservas_pendentes = $pdo->query("SELECT a.*, l.nome as laboratorio, u.nome as professor, d.nome as disciplina FROM agendamentos a JOIN laboratorios l ON a.id_laboratorio = l.id JOIN usuarios u ON a.id_professor = u.id JOIN disciplinas d ON a.id_disciplina = d.id WHERE a.status = 'pendente' ORDER BY a.data_reserva ASC")->fetchAll(PDO::FETCH_ASSOC);
 $qtd_pendentes = count($reservas_pendentes);
-$agendamentos_aprovados = $pdo->query("SELECT a.*, l.nome as laboratorio, u.nome as professor, d.nome as disciplina, a.id_professor, a.id_laboratorio, a.id_disciplina FROM agendamentos a JOIN laboratorios l ON a.id_laboratorio = l.id JOIN usuarios u ON a.id_professor = u.id JOIN disciplinas d ON a.id_disciplina = d.id WHERE a.status = 'aprovado' ORDER BY a.data_reserva DESC")->fetchAll(PDO::FETCH_ASSOC);
-$historico_completo = $pdo->query("SELECT a.*, l.nome as laboratorio, u.nome as professor, d.nome as disciplina FROM agendamentos a JOIN laboratorios l ON a.id_laboratorio = l.id JOIN usuarios u ON a.id_professor = u.id JOIN disciplinas d ON a.id_disciplina = d.id ORDER BY a.data_reserva DESC, a.id DESC")->fetchAll(PDO::FETCH_ASSOC);
+
+$where_aprovados = "a.status = 'aprovado' AND " . app_sql_date_between('a.data_reserva', 90, 365);
+$agendamentos_aprovados = $pdo->query(
+    "SELECT a.*, l.nome as laboratorio, u.nome as professor, d.nome as disciplina, a.id_professor, a.id_laboratorio, a.id_disciplina
+     FROM agendamentos a
+     JOIN laboratorios l ON a.id_laboratorio = l.id
+     JOIN usuarios u ON a.id_professor = u.id
+     JOIN disciplinas d ON a.id_disciplina = d.id
+     WHERE {$where_aprovados}
+     ORDER BY a.data_reserva DESC"
+)->fetchAll(PDO::FETCH_ASSOC);
+
+if ($carregar_historico) {
+    $historico_completo = $pdo->query(
+        "SELECT a.*, l.nome as laboratorio, u.nome as professor, d.nome as disciplina
+         FROM agendamentos a
+         JOIN laboratorios l ON a.id_laboratorio = l.id
+         JOIN usuarios u ON a.id_professor = u.id
+         JOIN disciplinas d ON a.id_disciplina = d.id
+         ORDER BY a.data_reserva DESC, a.id DESC
+         LIMIT 300"
+    )->fetchAll(PDO::FETCH_ASSOC);
+} else {
+    $historico_completo = [];
+}
 
 $professores = $pdo->query("SELECT id, nome FROM usuarios WHERE perfil = 'professor' ORDER BY nome ASC")->fetchAll(PDO::FETCH_ASSOC);
 $laboratorios_cadastrados = $pdo->query("SELECT * FROM laboratorios ORDER BY nome ASC")->fetchAll(PDO::FETCH_ASSOC);
@@ -747,7 +775,7 @@ if ($quadro_selecionado) {
     }
 }
 
-if ($quadro_selecionado) {
+if ($quadro_selecionado && $carregar_relatorios) {
     try {
         $sql_prof = "SELECT p.nome as professor, SUM(CASE WHEN qa.dia_semana = 'Segunda' THEN qa.carga_horaria_total ELSE 0 END) as seg_t, SUM(CASE WHEN qa.dia_semana = 'Segunda' THEN qa.horas_laboratorio ELSE 0 END) as seg_l, SUM(CASE WHEN qa.dia_semana = 'Terça' THEN qa.carga_horaria_total ELSE 0 END) as ter_t, SUM(CASE WHEN qa.dia_semana = 'Terça' THEN qa.horas_laboratorio ELSE 0 END) as ter_l, SUM(CASE WHEN qa.dia_semana = 'Quarta' THEN qa.carga_horaria_total ELSE 0 END) as qua_t, SUM(CASE WHEN qa.dia_semana = 'Quarta' THEN qa.horas_laboratorio ELSE 0 END) as qua_l, SUM(CASE WHEN qa.dia_semana = 'Quinta' THEN qa.carga_horaria_total ELSE 0 END) as qui_t, SUM(CASE WHEN qa.dia_semana = 'Quinta' THEN qa.horas_laboratorio ELSE 0 END) as qui_l, SUM(CASE WHEN qa.dia_semana = 'Sexta' THEN qa.carga_horaria_total ELSE 0 END) as sex_t, SUM(CASE WHEN qa.dia_semana = 'Sexta' THEN qa.horas_laboratorio ELSE 0 END) as sex_l, SUM(CASE WHEN qa.dia_semana = 'Sábado' THEN qa.carga_horaria_total ELSE 0 END) as sab_t, SUM(CASE WHEN qa.dia_semana = 'Sábado' THEN qa.horas_laboratorio ELSE 0 END) as sab_l, SUM(qa.carga_horaria_total) as total, SUM(qa.horas_laboratorio) as total_l FROM quadro_aulas qa JOIN usuarios p ON qa.id_professor = p.id WHERE qa.id_quadro = ? GROUP BY p.id, p.nome ORDER BY total DESC, p.nome ASC";
         $stmt_prof = $pdo->prepare($sql_prof);
@@ -772,13 +800,13 @@ if ($quadro_selecionado) {
         }
 
         // Reservas avulsas aprovadas (últimas 4 semanas + próximas 4) somam nas métricas de lab/professor
+        $where_avulsas = "a.status = 'aprovado' AND " . app_sql_date_between('a.data_reserva', 28, 28);
         $stmt_avulsas = $pdo->query(
             "SELECT a.data_reserva, a.periodo, l.nome AS laboratorio, u.nome AS professor
              FROM agendamentos a
              INNER JOIN laboratorios l ON a.id_laboratorio = l.id
              INNER JOIN usuarios u ON a.id_professor = u.id
-             WHERE a.status = 'aprovado'
-               AND a.data_reserva BETWEEN DATE_SUB(CURDATE(), INTERVAL 28 DAY) AND DATE_ADD(CURDATE(), INTERVAL 28 DAY)"
+             WHERE {$where_avulsas}"
         );
         $reservas_avulsas = $stmt_avulsas->fetchAll(PDO::FETCH_ASSOC);
         $total_reservas_avulsas = count($reservas_avulsas);
@@ -940,8 +968,13 @@ $eventos_json = json_encode($eventos_calendario);
         $vars = get_defined_vars();
         $usuarioSvc = new UsuarioService();
         $mailSvc    = new MailService();
-        $vars['lista_usuarios']  = $usuarioSvc->listar();
+        $vars['lista_usuarios']   = $usuarioSvc->listar();
         $vars['mail_configurado'] = $mailSvc->isConfigured();
+        $vars['painel_rapido']    = $painel_rapido;
+        $vars['secoes_pesadas']   = [
+            'sessao-relatorios'       => $carregar_relatorios,
+            'sessao-historico-geral'  => $carregar_historico,
+        ];
         unset($vars['pdo'], $vars['this']);
         return $this->render('coordenador/painel', $vars);
     }

@@ -51,8 +51,17 @@ function app_env(string $key, ?string $default = null): ?string
 /** Painel sem relatórios BI pesados — acelera abertura após login */
 function app_is_fast_panel(): bool
 {
-    $v = app_env('APP_FAST_PANEL', '0');
+    $v = app_env('APP_FAST_PANEL', '1');
     return $v === '1' || strtolower($v) === 'true' || strtolower($v) === 'yes';
+}
+
+/** Intervalo de datas SQL (MySQL / PostgreSQL). */
+function app_sql_date_between(string $column, int $daysBefore, int $daysAfter): string
+{
+    if (app_db_driver() === 'pgsql') {
+        return "{$column} BETWEEN CURRENT_DATE - INTERVAL '{$daysBefore} days' AND CURRENT_DATE + INTERVAL '{$daysAfter} days'";
+    }
+    return "{$column} BETWEEN DATE_SUB(CURDATE(), INTERVAL {$daysBefore} DAY) AND DATE_ADD(CURDATE(), INTERVAL {$daysAfter} DAY)";
 }
 
 function app_boot_database(): void

@@ -16,6 +16,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales-all.global.min.js"></script>
 
     <script>const savedTheme = localStorage.getItem('tema-uniceplac') || 'light'; document.documentElement.setAttribute('data-bs-theme', savedTheme);</script>
+    <script>
+        window.LABHUB_PAINEL_FAST = <?= !empty($painel_rapido) ? 'true' : 'false' ?>;
+        window.LABHUB_SECOES_PESADAS = <?= json_encode($secoes_pesadas ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    </script>
 
     <style>
         :root {
@@ -864,6 +868,15 @@
         let calendarioCoordenadorGlobal;
 
         window.showSection = function (sectionId) {
+            const abasRecarregar = ['sessao-relatorios', 'sessao-historico-geral'];
+            if (window.LABHUB_PAINEL_FAST && abasRecarregar.includes(sectionId)) {
+                const carregada = window.LABHUB_SECOES_PESADAS && window.LABHUB_SECOES_PESADAS[sectionId];
+                if (!carregada) {
+                    window.location.href = 'painel_coordenador.php?aba=' + encodeURIComponent(sectionId) + '#' + sectionId;
+                    return;
+                }
+            }
+
             document.querySelectorAll('.content-section').forEach(sec => sec.style.display = 'none');
             document.querySelectorAll('.offcanvas-menu-link').forEach(link => link.classList.remove('active-link'));
             const targetSection = document.getElementById(sectionId);

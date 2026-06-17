@@ -23,6 +23,8 @@ services:
         sync: false
       - key: APP_ENV
         value: production
+      - key: APP_FAST_PANEL
+        value: "1"
       - key: APP_URL
         value: https://labhub-uniceplac.onrender.com
       - key: MAIL_HOST
