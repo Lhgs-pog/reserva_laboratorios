@@ -18,7 +18,10 @@
                 Usuários com status <span class="badge bg-warning text-dark">Pendente</span> já estão no banco — use o botão de envelope para reenviar confirmação.
                 Professores também podem se cadastrar em <a href="cadastro.php" target="_blank" rel="noopener">Solicitar Cadastro</a> (perfil Professor).
                 <?php if (empty($mail_configurado)): ?>
-                    <span class="text-warning fw-semibold">SMTP não configurado — envios por e-mail ficarão indisponíveis até definir MAIL_* no .env.</span>
+                    <span class="text-warning fw-semibold">E-mail não configurado — defina RESEND_API_KEY ou BREVO_API_KEY no servidor.</span>
+                <?php else: ?>
+                    <span class="text-success fw-semibold">Provedor ativo: <?= htmlspecialchars($mail_provedor ?? 'Brevo') ?>.</span>
+                    Se não chegar em 1–2 min, confira <strong>Spam/Promoções</strong> — a Brevo/Resend pode marcar como entregue mesmo indo para lixo.
                 <?php endif; ?>
             </p>
         </div>

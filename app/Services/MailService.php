@@ -8,6 +8,25 @@ class MailService {
         return $this->lastError;
     }
 
+    /** Provedor configurado (para exibir no painel). */
+    public function provedorAtivo(): string {
+        if ($this->resendApiKey() !== null) {
+            return 'Resend';
+        }
+        if ($this->brevoApiKey() !== null) {
+            return 'Brevo';
+        }
+        if (str_starts_with($this->smtpPassword(), 'xsmtpsib-')) {
+            return 'Brevo SMTP';
+        }
+        return 'nenhum';
+    }
+
+    private function resendApiKey(): ?string {
+        $key = app_env('RESEND_API_KEY', '');
+        return ($key !== '' && str_starts_with($key, 're_')) ? $key : null;
+    }
+
     private function brevoApiKey(): ?string {
         $apiKey = app_env('BREVO_API_KEY', '');
         if ($apiKey !== '' && str_starts_with($apiKey, 'xkeysib-')) {
@@ -148,6 +167,52 @@ class MailService {
         return true;
     }
 
+    private function sendViaResend(string $toEmail, string $toName, string $subject, string $htmlBody, string $textBody): bool {
+        $this->lastError = null;
+        $apiKey = $this->resendApiKey();
+        if ($apiKey === null) {
+            return false;
+        }
+
+        $sender = $this->sender();
+        $from   = $sender['name'] . ' <' . $sender['email'] . '>';
+        $payload = json_encode([
+            'from'    => $from,
+            'to'      => [$toEmail],
+            'subject' => $subject,
+            'html'    => $htmlBody,
+            'text'    => $textBody,
+        ], JSON_UNESCAPED_UNICODE);
+
+        $ch = curl_init('https://api.resend.com/emails');
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_IPRESOLVE      => CURL_IPRESOLVE_V4,
+            CURLOPT_HTTPHEADER     => [
+                'accept: application/json',
+                'content-type: application/json',
+                'Authorization: Bearer ' . $apiKey,
+            ],
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error    = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false || $httpCode < 200 || $httpCode >= 300) {
+            $this->lastError = 'Resend HTTP ' . $httpCode . ': ' . ($error ?: trim((string) $response));
+            error_log('[MailService] resend: ' . $this->lastError);
+            return false;
+        }
+
+        error_log('[MailService] resend: enviado para ' . $toEmail . ' HTTP ' . $httpCode);
+        return true;
+    }
+
     private function createMailer(): \PHPMailer\PHPMailer\PHPMailer {
         $mailerPath = __DIR__ . '/../../PHPMailer/src/';
         require_once $mailerPath . 'Exception.php';
@@ -175,13 +240,18 @@ class MailService {
 
     private function sendMail(string $toEmail, string $toName, string $subject, string $htmlBody, string $textBody): bool {
         $this->lastError = null;
+
+        if ($this->resendApiKey() !== null && $this->sendViaResend($toEmail, $toName, $subject, $htmlBody, $textBody)) {
+            return true;
+        }
+
         if ($this->brevoApiKey() !== null && $this->sendViaBrevoApi($toEmail, $toName, $subject, $htmlBody, $textBody)) {
             return true;
         }
 
         if ($this->smtpPassword() === '' || !str_starts_with($this->smtpPassword(), 'xsmtpsib-')) {
             if ($this->lastError === null) {
-                $this->lastError = 'Brevo não configurado (BREVO_API_KEY xkeysib- ou MAIL_SMTP_PASSWORD xsmtpsib-).';
+                $this->lastError = 'Nenhum provedor de e-mail ativo. Configure RESEND_API_KEY (re_...) ou BREVO_API_KEY (xkeysib-...).';
             }
             return false;
         }
@@ -211,9 +281,12 @@ class MailService {
         if (!$fromOk) {
             return false;
         }
-        $hasTransport = $this->brevoApiKey() !== null
+        if ($this->resendApiKey() !== null) {
+            return true;
+        }
+        $hasBrevo = $this->brevoApiKey() !== null
             || (str_starts_with($this->smtpPassword(), 'xsmtpsib-') && app_env('MAIL_USERNAME') !== '');
-        if (!$hasTransport) {
+        if (!$hasBrevo) {
             return false;
         }
         return $this->remetenteValidoNaBrevo();

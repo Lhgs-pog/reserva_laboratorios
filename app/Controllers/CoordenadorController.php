@@ -216,7 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $detail = $mailSvc->lastError() ?: 'Erro desconhecido';
                 throw new \RuntimeException('Falha ao enviar e-mail. ' . $detail);
             }
-            $flashUsuarios = '<div class="alert alert-primary alert-autohide mb-4"><i class="bi bi-envelope me-2"></i>Link de redefinição enviado para ' . htmlspecialchars($user['email']) . '.</div>';
+            $flashUsuarios = '<div class="alert alert-primary alert-autohide mb-4"><i class="bi bi-envelope me-2"></i>Link de redefinição enviado para ' . htmlspecialchars($user['email']) . '. Confira também Spam/Promoções.</div>';
         } elseif (isset($_POST['admin_enviar_verificacao'])) {
             $id = (int) ($_POST['id_usuario'] ?? 0);
             $user = $usuarioSvc->buscarPorId($id);
@@ -231,7 +231,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $detail = $mailSvc->lastError() ?: 'Erro desconhecido';
                 throw new \RuntimeException('Falha ao enviar e-mail de verificação. ' . $detail);
             }
-            $flashUsuarios = '<div class="alert alert-success alert-autohide mb-4"><i class="bi bi-envelope-check me-2"></i>E-mail de confirmação enviado.</div>';
+            $flashUsuarios = '<div class="alert alert-success alert-autohide mb-4"><i class="bi bi-envelope-check me-2"></i>E-mail de confirmação enviado. Peça ao usuário verificar <strong>Spam/Promoções</strong> se não aparecer em 2 min.</div>';
         }
     } catch (\Throwable $e) {
         $flashUsuarios = '<div class="alert alert-danger alert-autohide mb-4"><i class="bi bi-exclamation-triangle me-2"></i>' . htmlspecialchars($e->getMessage()) . '</div>';
@@ -992,6 +992,7 @@ $eventos_json = json_encode($eventos_calendario);
         $mailSvc    = new MailService();
         $vars['lista_usuarios']   = $usuarioSvc->listar();
         $vars['mail_configurado'] = $mailSvc->isConfigured();
+        $vars['mail_provedor']    = $mailSvc->provedorAtivo();
         $vars['painel_rapido']    = $painel_rapido;
         $vars['secoes_pesadas']   = [
             'sessao-relatorios'       => $carregar_relatorios,
