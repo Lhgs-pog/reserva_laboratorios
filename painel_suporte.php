@@ -297,7 +297,7 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="css/labhub-theme.css?v=20260619">
-    <link rel="stylesheet" href="css/labhub-layout.css">
+    <link rel="stylesheet" href="css/labhub-layout.css?v=20260619">
     <link rel="stylesheet" href="css/notificacoes-nav.css">
     <link rel="stylesheet" href="css/labhub-alerts.css?v=20260619">
     <script>
@@ -518,7 +518,7 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
                     <?php if ($qtd_alertas > 0): ?>
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light sticky-top">
+                                <thead class="table-light">
                                     <tr>
                                         <th class="ps-4 py-3">Data/Hora</th>
                                         <th>Professor</th>
@@ -656,9 +656,9 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
                     <h5 class="mb-0 fw-bold d-flex align-items-center text-dark"><i class="bi bi-pc-display text-secondary me-3 fs-4"></i> Relação de Laboratórios</h5>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                    <div class="table-responsive lh-table-scroll">
                         <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light sticky-top"><tr><th class="ps-4 py-3">ID</th><th>Nome / Identificação</th><th>Capacidade</th></tr></thead>
+                            <thead class="table-light"><tr><th class="ps-4 py-3">ID</th><th>Nome / Identificação</th><th>Capacidade</th></tr></thead>
                             <tbody>
                                 <?php if (count($lista_laboratorios) > 0): ?>
                                     <?php foreach ($lista_laboratorios as $lab): ?>
@@ -687,9 +687,9 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
                     </button>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                    <div class="table-responsive lh-table-scroll">
                         <table id="tabela-historico-chaves" class="table table-striped table-hover align-middle mb-0">
-                            <thead class="table-light sticky-top">
+                            <thead class="table-light">
                                 <tr>
                                     <th class="ps-4 py-3">Data</th>
                                     <th>Laboratório</th>
@@ -749,9 +749,9 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
                     </button>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                    <div class="table-responsive lh-table-scroll">
                         <table id="tabela-historico-chamados" class="table table-striped table-hover align-middle mb-0">
-                            <thead class="table-light sticky-top">
+                            <thead class="table-light">
                                 <tr>
                                     <th class="ps-4 py-3">Encerrado em</th>
                                     <th>Laboratório</th>

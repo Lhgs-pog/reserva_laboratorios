@@ -184,9 +184,9 @@ if (!function_exists('renderCellProf')) {
                     </div>
                     <div id="collapseTabelaBI" style="display: block;">
                         <div class="card-body p-0">
-                            <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                            <div class="table-responsive lh-table-scroll">
                                 <table class="table table-hover align-middle mb-0 text-center">
-                                    <thead class="table-light sticky-top">
+                                    <thead class="table-light">
                                         <tr>
                                             <th class="text-start ps-4">Professor</th>
                                             <th>Disciplina</th>

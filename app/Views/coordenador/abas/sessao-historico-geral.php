@@ -57,9 +57,9 @@
                         cada pedido. Pendentes e aprovadas podem ser <strong>realocadas</strong> para outro lab livre no mesmo horário.</p>
                 </div>
                 <div class="card-body p-0" id="container-tabela-historico-geral">
-                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                    <div class="table-responsive lh-table-scroll">
                         <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light sticky-top">
+                            <thead class="table-light">
                                 <tr>
                                     <th class="ps-4 py-3">Data da Reserva</th>
                                     <th>Professor Solicitante</th>

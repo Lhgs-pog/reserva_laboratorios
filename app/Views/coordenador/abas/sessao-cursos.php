@@ -25,7 +25,7 @@
                     <div class="card-body p-0">
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light sticky-top">
+                                <thead class="table-light">
                                     <tr>
                                         <th class="ps-4">Nome</th>
                                         <th class="text-end pe-4">Ações</th>
