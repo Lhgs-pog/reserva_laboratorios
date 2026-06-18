@@ -49,10 +49,62 @@ class MailService {
         return ['email' => $from, 'name' => $name];
     }
 
+    /** @var list<string>|null */
+    private static ?array $brevoSendersCache = null;
+
+    /** E-mails remetentes ativos na conta Brevo (evita falso positivo HTTP 201). */
+    private function brevoRemetentesAtivos(): array {
+        if (self::$brevoSendersCache !== null) {
+            return self::$brevoSendersCache;
+        }
+        self::$brevoSendersCache = [];
+        $apiKey = $this->brevoApiKey();
+        if ($apiKey === null) {
+            return self::$brevoSendersCache;
+        }
+        $ch = curl_init('https://api.brevo.com/v3/senders');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_IPRESOLVE      => CURL_IPRESOLVE_V4,
+            CURLOPT_HTTPHEADER     => ['accept: application/json', 'api-key: ' . $apiKey],
+        ]);
+        $response = curl_exec($ch);
+        curl_close($ch);
+        if ($response === false) {
+            return self::$brevoSendersCache;
+        }
+        $data = json_decode($response, true);
+        foreach ($data['senders'] ?? [] as $row) {
+            if (!empty($row['active']) && !empty($row['email'])) {
+                self::$brevoSendersCache[] = strtolower($row['email']);
+            }
+        }
+        return self::$brevoSendersCache;
+    }
+
+    private function remetenteValidoNaBrevo(): bool {
+        $from = strtolower($this->sender()['email']);
+        $ativos = $this->brevoRemetentesAtivos();
+        if ($ativos === []) {
+            return true;
+        }
+        return in_array($from, $ativos, true);
+    }
+
     private function sendViaBrevoApi(string $toEmail, string $toName, string $subject, string $htmlBody, string $textBody): bool {
         $this->lastError = null;
         $apiKey = $this->brevoApiKey();
         if ($apiKey === null) {
+            return false;
+        }
+
+        if (!$this->remetenteValidoNaBrevo()) {
+            $from = $this->sender()['email'];
+            $lista = implode(', ', $this->brevoRemetentesAtivos()) ?: '(nenhum)';
+            $this->lastError = "Remetente «{$from}» não está verificado na Brevo. Remetentes ativos: {$lista}. "
+                . 'Cadastre em https://app.brevo.com/senders';
+            error_log('[MailService] brevo_api: ' . $this->lastError);
             return false;
         }
 
@@ -159,8 +211,12 @@ class MailService {
         if (!$fromOk) {
             return false;
         }
-        return $this->brevoApiKey() !== null
+        $hasTransport = $this->brevoApiKey() !== null
             || (str_starts_with($this->smtpPassword(), 'xsmtpsib-') && app_env('MAIL_USERNAME') !== '');
+        if (!$hasTransport) {
+            return false;
+        }
+        return $this->remetenteValidoNaBrevo();
     }
 
     public function baseUrl(): string {
