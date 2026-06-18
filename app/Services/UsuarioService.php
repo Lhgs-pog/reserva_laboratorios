@@ -59,7 +59,7 @@ class UsuarioService {
         $stmt = $this->pdo->prepare(
             'INSERT INTO usuarios (nome, email, senha, perfil, email_verificado) VALUES (?, ?, ?, ?, ?) RETURNING id'
         );
-        $stmt->execute([trim($nome), trim($email), $hash, $perfil, $emailVerificado ? 1 : 0]);
+        $stmt->execute([trim($nome), trim($email), $hash, $perfil, (bool) $emailVerificado]);
         return (int) $stmt->fetchColumn();
     }
 
@@ -80,7 +80,7 @@ class UsuarioService {
         $stmt = $this->pdo->prepare(
             'UPDATE usuarios SET nome = ?, email = ?, perfil = ?, email_verificado = ? WHERE id = ?'
         );
-        $stmt->execute([trim($nome), trim($email), $perfil, $emailVerificado ? 1 : 0, $id]);
+        $stmt->execute([trim($nome), trim($email), $perfil, (bool) $emailVerificado, $id]);
     }
 
     public function definirSenha(int $id, string $senha): void {
@@ -105,8 +105,8 @@ class UsuarioService {
     public function gerarTokenVerificacao(int $id): string {
         $token = bin2hex(random_bytes(32));
         $this->pdo->prepare(
-            'UPDATE usuarios SET token_verificacao = ?, token_expira_em = NULL, email_verificado = 0 WHERE id = ?'
-        )->execute([$token, $id]);
+            'UPDATE usuarios SET token_verificacao = ?, token_expira_em = NULL, email_verificado = ? WHERE id = ?'
+        )->execute([$token, false, $id]);
         return $token;
     }
 
@@ -121,8 +121,8 @@ class UsuarioService {
 
     public function confirmarEmail(int $id): void {
         $this->pdo->prepare(
-            'UPDATE usuarios SET email_verificado = 1, token_verificacao = NULL, token_expira_em = NULL WHERE id = ?'
-        )->execute([$id]);
+            'UPDATE usuarios SET email_verificado = ?, token_verificacao = NULL, token_expira_em = NULL WHERE id = ?'
+        )->execute([true, $id]);
     }
 
     public function buscarPorTokenRedefinicao(string $token): ?array {
