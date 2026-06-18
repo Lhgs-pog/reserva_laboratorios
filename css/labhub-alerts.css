@@ -124,6 +124,38 @@
     border-top-right-radius: 16px;
 }
 
+/* Modal atender chamado — form quebra flex do BS; body rola, footer fixo */
+.modal-sos-atendimento.modal-dialog-scrollable {
+    height: calc(100% - 1rem);
+    max-height: calc(100vh - 1rem);
+    margin: 0.5rem auto;
+}
+
+.modal-sos-atendimento .modal-content {
+    max-height: calc(100vh - 1rem);
+    overflow: hidden;
+}
+
+.modal-sos-atendimento-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.modal-sos-atendimento-form .modal-body {
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+.modal-sos-atendimento-form .modal-footer {
+    flex-shrink: 0;
+    z-index: 1;
+}
+
 [data-bs-theme="dark"] .apple-btn-attention {
     background: rgba(240, 127, 60, 0.18);
     border-color: rgba(240, 127, 60, 0.4);

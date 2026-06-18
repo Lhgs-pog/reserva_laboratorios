@@ -1,16 +1,29 @@
 <?php
-session_start();
+require_once __DIR__ . '/app/Config/session_bootstrap.php';
+labhub_session_start();
 
 if (!isset($_SESSION['usuario_id']) || ($_SESSION['perfil'] !== 'suporte' && $_SESSION['perfil'] !== 'coordenador')) {
-    header("Location: index.php");
-    exit;
+    labhub_redirect_login('expired');
+}
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    require_once __DIR__ . '/app/Config/csrf_helpers.php';
+    labhub_csrf_require_post();
 }
 
 require 'conexao.php';
-require 'Agendamento.php';
+require_once __DIR__ . '/bootstrap.php';
+labhub_register_autoload();
 
-$agendamento = new Agendamento($pdo);
+use App\Models\Agendamento;
+use App\Services\SosChamadoService;
+
+$agendamento = new Agendamento();
 $mensagem = '';
+if (!empty($_SESSION['suporte_flash'])) {
+    $mensagem = $_SESSION['suporte_flash'];
+    unset($_SESSION['suporte_flash']);
+}
 $id_usuario_logado = $_SESSION['usuario_id'];
 date_default_timezone_set('America/Sao_Paulo'); 
 
@@ -25,7 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['dar_baixa_chave'])) {
         ]);
         $mensagem = '<div class="alert alert-primary alert-autohide rounded-0 border-0 border-start border-4 border-primary shadow-sm mb-4"><i class="bi bi-check-circle-fill me-2"></i>Chave recebida e baixada com sucesso!</div>';
     } catch (PDOException $e) {
-        $mensagem = '<div class="alert alert-danger alert-autohide rounded-0 mb-4">Erro ao dar baixa: ' . htmlspecialchars($e->getMessage()) . '</div>';
+        $mensagem = '<div class="alert alert-danger alert-autohide rounded-0 mb-4">Erro ao dar baixa. Tente novamente.</div>';
+        error_log('[painel_suporte] dar_baixa_chave: ' . $e->getMessage());
     }
 }
 
@@ -51,15 +65,40 @@ if (isset($_FILES['nova_foto']) && $_FILES['nova_foto']['error'] === UPLOAD_ERR_
     }
 }
 
-// --- RESOLVER SOS ---
+// --- ATUALIZAR CHAMADO SOS (fluxo completo) ---
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['atualizar_chamado_sos'])) {
+    $svc = new SosChamadoService($pdo);
+    $resultado = $svc->atualizar(
+        (int) ($_POST['id_chamado'] ?? 0),
+        $_POST,
+        (int) $id_usuario_logado,
+        (string) ($_SESSION['nome'] ?? 'Suporte TI')
+    );
+    $tipo = $resultado['ok'] ? 'success' : 'danger';
+    $_SESSION['suporte_flash'] = '<div class="alert alert-' . $tipo . ' alert-autohide rounded-0 border-0 border-start border-4 border-' . $tipo . ' shadow-sm mb-4">'
+        . htmlspecialchars($resultado['msg']) . '</div>';
+    header('Location: painel_suporte.php?aba=sessao-sos-ativos');
+    exit;
+}
+
+// Legado: encerrar rápido redireciona para fluxo completo
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['resolver_chamado'])) {
-    try {
-        $stmt = $pdo->prepare("UPDATE chamados_suporte SET status = 'resolvido' WHERE id = :id");
-        $stmt->execute([':id' => $_POST['id_chamado']]);
-        $mensagem = '<div class="alert alert-success alert-autohide rounded-0 border-0 border-start border-4 border-success shadow-sm mb-4">Chamado encerrado!</div>';
-    } catch (PDOException $e) { 
-        $mensagem = '<div class="alert alert-danger alert-autohide mb-4">Erro ao encerrar chamado.</div>'; 
-    }
+    $_POST['atualizar_chamado_sos'] = 1;
+    $_POST['status'] = 'resolvido';
+    $_POST['resposta_professor'] = $_POST['resposta_professor'] ?? 'Chamado encerrado pelo suporte.';
+    $_POST['enviar_email'] = $_POST['enviar_email'] ?? 0;
+    $svc = new SosChamadoService($pdo);
+    $resultado = $svc->atualizar(
+        (int) ($_POST['id_chamado'] ?? 0),
+        $_POST,
+        (int) $id_usuario_logado,
+        (string) ($_SESSION['nome'] ?? 'Suporte TI')
+    );
+    $tipo = $resultado['ok'] ? 'success' : 'danger';
+    $_SESSION['suporte_flash'] = '<div class="alert alert-' . $tipo . ' alert-autohide rounded-0 border-0 border-start border-4 border-' . $tipo . ' shadow-sm mb-4">'
+        . htmlspecialchars($resultado['msg']) . '</div>';
+    header('Location: painel_suporte.php?aba=sessao-sos-ativos');
+    exit;
 }
 
 $foto_atual = app_foto_perfil_usuario($pdo, (int) $id_usuario_logado);
@@ -71,14 +110,17 @@ if (isset($_GET['foto']) && $_GET['foto'] === 'ok') {
 // --- BUSCAS DE DADOS ---
 $alertas_suporte = [];
 try {
-    $stmt_alertas = $pdo->query("SELECT * FROM chamados_suporte WHERE status = 'pendente' ORDER BY data_hora DESC");
+    $stmt_alertas = $pdo->query("SELECT * FROM chamados_suporte WHERE " . sos_sql_in_ativos() . " ORDER BY data_hora DESC");
     $alertas_suporte = $stmt_alertas->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {}
 $qtd_alertas = count($alertas_suporte);
 
 $historico_chamados = [];
 try {
-    $stmt_hist_cham = $pdo->query("SELECT * FROM chamados_suporte WHERE status = 'resolvido' ORDER BY data_hora DESC");
+    $stmt_hist_cham = $pdo->query(
+        "SELECT * FROM chamados_suporte WHERE " . sos_sql_in_encerrados()
+        . " ORDER BY COALESCE(resolvido_em, atualizado_em, data_hora) DESC LIMIT 200"
+    );
     $historico_chamados = $stmt_hist_cham->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {}
 
@@ -250,11 +292,14 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
 <head>
     <meta charset="UTF-8">
     <title>Suporte TI - UNICEPLAC</title>
+    <?php require __DIR__ . '/app/Views/partials/favicon.php'; ?>
+    <?php require __DIR__ . '/app/Views/partials/csrf-meta.php'; ?>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="css/labhub-theme.css">
+    <link rel="stylesheet" href="css/labhub-theme.css?v=20260619">
+    <link rel="stylesheet" href="css/labhub-layout.css">
     <link rel="stylesheet" href="css/notificacoes-nav.css">
-    <link rel="stylesheet" href="css/labhub-alerts.css">
+    <link rel="stylesheet" href="css/labhub-alerts.css?v=20260619">
     <script>
         const savedTheme = localStorage.getItem('tema-uniceplac') || 'light';
         document.documentElement.setAttribute('data-bs-theme', savedTheme);
@@ -267,7 +312,7 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
         }
         body { background-color: #f4f6f8; transition: background-color 0.3s ease; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         .card, .card-header, .form-control, .form-select, .btn, .badge, .alert, .offcanvas { border-radius: 0 !important; }
-        .bg-uniceplac { background-color: var(--verde-uniceplac) !important; }
+        .bg-uniceplac { background-color: var(--lh-verde) !important; color: #fff !important; }
         .navbar { border-bottom: 1px solid rgba(0,0,0,0.05) !important; background: rgba(255, 255, 255, 0.9) !important; backdrop-filter: blur(10px); }
         
         .content-section { display: none; animation: fadeIn 0.4s ease-in-out; }
@@ -281,6 +326,19 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
         .top-icon-btn:hover { color: var(--verde-uniceplac); }
         
         @keyframes sos-pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+        .sos-historico-timeline { max-height: 220px; overflow-y: auto; }
+        .sos-historico-item { display: flex; gap: 0.75rem; padding: 0.65rem 0.5rem; border-bottom: 1px solid rgba(0,0,0,0.06); }
+        .sos-historico-item:last-child { border-bottom: none; }
+        .sos-historico-icon { flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; background: rgba(0, 115, 79, 0.12); color: var(--lh-verde); }
+        .sos-historico-item[data-tipo="observacao_interna"] .sos-historico-icon { background: rgba(108, 117, 125, 0.15); color: #6c757d; }
+        .sos-historico-item[data-tipo="resposta_professor"] .sos-historico-icon { background: rgba(25, 135, 84, 0.12); color: #198754; }
+        .sos-historico-item[data-tipo="status"] .sos-historico-icon { background: rgba(0, 115, 79, 0.12); color: var(--lh-verde); }
+        .sos-historico-item[data-tipo="email"] .sos-historico-icon { background: rgba(255, 193, 7, 0.15); color: #997404; }
+        .sos-historico-meta { font-size: 0.72rem; color: #6c757d; }
+        .sos-historico-texto { font-size: 0.85rem; white-space: pre-wrap; word-break: break-word; }
+        [data-bs-theme="dark"] .sos-historico-timeline { background: #252525 !important; border-color: #333 !important; }
+        [data-bs-theme="dark"] .sos-historico-item { border-bottom-color: #333; }
         
         @keyframes heartbeat { 0% { transform: scale(1); } 20% { transform: scale(1.05); } 40% { transform: scale(1); } 60% { transform: scale(1.05); } 80% { transform: scale(1); } 100% { transform: scale(1); } }
         .heartbeat { animation: heartbeat 1.5s infinite; }
@@ -315,8 +373,8 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
         @keyframes pulse-dot-red { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(220, 53, 69, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); } }
 
         .apple-btn { display: flex; align-items: center; justify-content: center; width: 100%; padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; font-weight: 600; backdrop-filter: blur(8px); transition: all 0.2s ease; cursor: pointer; text-decoration: none; border: none; }
-        .apple-btn-primary { background: rgba(13, 110, 253, 0.1); border: 1px solid rgba(13, 110, 253, 0.2); color: #0d6efd; }
-        .apple-btn-primary:hover { background: rgba(13, 110, 253, 0.2); transform: translateY(-1px); }
+        .apple-btn-primary { background: rgba(0, 115, 79, 0.1); border: 1px solid rgba(0, 115, 79, 0.2); color: var(--lh-verde); }
+        .apple-btn-primary:hover { background: rgba(0, 115, 79, 0.2); transform: translateY(-1px); }
         .apple-btn-danger { background: rgba(220, 53, 69, 0.1); border: 1px solid rgba(220, 53, 69, 0.2); color: #dc3545; }
         .apple-btn-danger:hover { background: rgba(220, 53, 69, 0.2); transform: translateY(-1px); }
 
@@ -366,7 +424,7 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
         [data-bs-theme="dark"] .apple-tag.late { background: rgba(234, 84, 85, 0.15); border-color: rgba(234, 84, 85, 0.3); color: #ea5455; }
         [data-bs-theme="dark"] .apple-dot.late { background-color: #ea5455; box-shadow: 0 0 6px #ea5455; }
         
-        [data-bs-theme="dark"] .apple-btn-primary { background: rgba(13, 110, 253, 0.15); border-color: rgba(13, 110, 253, 0.3); color: #6ea8fe; }
+        [data-bs-theme="dark"] .apple-btn-primary { background: rgba(0, 115, 79, 0.15); border-color: rgba(0, 115, 79, 0.3); color: #86efac; }
         [data-bs-theme="dark"] .apple-btn-danger { background: rgba(234, 84, 85, 0.12); border-color: rgba(234, 84, 85, 0.3); color: #ea5455; }
         
         [data-bs-theme="dark"] .turn-divider::before, [data-bs-theme="dark"] .turn-divider::after { border-bottom-color: rgba(255,255,255,0.1); }
@@ -383,9 +441,11 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
 
     <nav class="navbar navbar-light bg-white mb-4 shadow-sm sticky-top">
         <div class="container-fluid px-3 px-md-4">
-            <span class="navbar-brand d-flex align-items-center">
-                <img src="uniceplac.png" id="navbarLogo" alt="Logo" style="height: 70px; margin-right: 12px; transition: 0.3s;">
-            </span>
+            <a href="#sessao-sos-ativos" class="navbar-brand d-flex align-items-center text-decoration-none lh-navbar-home"
+                title="Início — Chamados ativos"
+                onclick="event.preventDefault(); if(typeof fecharNotificacoesPopup==='function') fecharNotificacoesPopup(); bootstrap.Offcanvas.getInstance(document.getElementById('sidebarMenu'))?.hide(); showSection('sessao-sos-ativos', false); window.scrollTo({top:0,behavior:'smooth'});">
+                <img src="uniceplac.png" id="navbarLogo" alt="Logo UNICEPLAC — início" style="height: 70px; margin-right: 12px; transition: 0.3s;">
+            </a>
             <div class="ms-auto d-flex align-items-center">
                 <div class="me-4 top-icon-btn" id="themeToggleBtn" title="Alternar Tema"><i class="bi bi-moon-stars" id="themeIcon"></i></div>
                 <?php
@@ -409,7 +469,7 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
             <div class="p-4 text-center border-bottom bg-light">
                 <img src="<?= htmlspecialchars($foto_atual) ?>" alt="Foto" style="width: 80px; height: 80px; object-fit: cover; border-radius: 50% !important; border: 3px solid var(--laranja-uniceplac);" class="shadow-sm mb-2">
                 <h5 class="fw-bold mb-0 text-dark"><?= htmlspecialchars($_SESSION['nome']) ?></h5>
-                <span class="badge bg-uniceplac text-uppercase mt-2 px-3 py-1">Suporte TI</span>
+                <span class="badge lh-badge lh-badge-suporte text-uppercase mt-2 px-3 py-1">Suporte TI</span>
             </div>
             <div class="flex-grow-1 overflow-auto">
                 <div class="p-3 text-muted small fw-bold text-uppercase opacity-50">Operacional</div>
@@ -445,11 +505,14 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
         
         <div id="sessao-sos-ativos" class="content-section">
             <div class="card shadow-sm border-0 mb-4 card-sos-attention">
-                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0 fw-bold d-flex align-items-center">
-                        <i class="bi bi-headset me-3 fs-4"></i> Chamados aguardando atendimento
-                    </h5>
-                    <span class="badge badge-sos-count rounded-pill px-3 py-2"><?= $qtd_alertas ?> abertos</span>
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <h5 class="mb-0 fw-bold d-flex align-items-center">
+                            <i class="bi bi-headset me-3 fs-4"></i> Chamados em aberto
+                        </h5>
+                        <p class="text-muted small mb-0 mt-1">Atualize status, registre observações internas e responda ao professor (com e-mail opcional).</p>
+                    </div>
+                    <span class="badge badge-sos-count rounded-pill px-3 py-2"><?= $qtd_alertas ?> em aberto</span>
                 </div>
                 <div class="card-body p-0">
                     <?php if ($qtd_alertas > 0): ?>
@@ -460,13 +523,22 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
                                         <th class="ps-4 py-3">Data/Hora</th>
                                         <th>Professor</th>
                                         <th>Laboratório</th>
-                                        <th style="min-width: 220px;">Problema</th>
+                                        <th style="min-width: 200px;">Problema</th>
+                                        <th>Status</th>
                                         <th class="pe-4">Ação</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($alertas_suporte as $ch): ?>
-                                        <tr class="tr-sos-attention" data-sos-id="<?= (int) $ch['id'] ?>">
+                                        <tr class="tr-sos-attention" data-sos-id="<?= (int) $ch['id'] ?>"
+                                            data-sos-json="<?= htmlspecialchars(json_encode([
+                                                'id' => (int) $ch['id'],
+                                                'professor_nome' => $ch['professor_nome'] ?? '',
+                                                'laboratorio' => $ch['laboratorio'] ?? '',
+                                                'mensagem' => $ch['mensagem'] ?? '',
+                                                'status' => $ch['status'] ?? 'pendente',
+                                                'historico' => sos_historico_lista($ch),
+                                            ], JSON_UNESCAPED_UNICODE), ENT_QUOTES) ?>">
                                             <td class="ps-4"><strong><?= date('d/m H:i', strtotime($ch['data_hora'])) ?></strong></td>
                                             <td><?= htmlspecialchars($ch['professor_nome']) ?></td>
                                             <td class="fw-bold text-dark"><?= htmlspecialchars($ch['laboratorio']) ?></td>
@@ -479,15 +551,20 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
                                                 <?php if ($msgLonga): ?>
                                                     <button type="button" class="sos-problema-toggle">Ver descrição completa</button>
                                                 <?php endif; ?>
+                                                <?php
+                                                $ultimaObs = sos_historico_ultima_obs_interna($ch);
+                                                if ($ultimaObs !== ''):
+                                                ?>
+                                                    <div class="mt-2 p-2 bg-light rounded small border-start border-3 border-secondary">
+                                                        <span class="fw-bold text-secondary">Última obs. TI:</span> <?= nl2br(htmlspecialchars($ultimaObs)) ?>
+                                                    </div>
+                                                <?php endif; ?>
                                             </td>
+                                            <td><?= sos_render_badge($ch['status'] ?? 'pendente') ?></td>
                                             <td class="pe-4">
-                                                <form method="POST" action="painel_suporte.php" class="d-inline">
-                                                    <input type="hidden" name="resolver_chamado" value="1">
-                                                    <input type="hidden" name="id_chamado" value="<?= $ch['id'] ?>">
-                                                    <button type="submit" class="btn btn-sm btn-success rounded-pill px-3 fw-bold">
-                                                        <i class="bi bi-check-circle me-1"></i> Encerrar
-                                                    </button>
-                                                </form>
+                                                <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold btn-atender-chamado">
+                                                    <i class="bi bi-pencil-square me-1"></i> Atender
+                                                </button>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -497,7 +574,7 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
                     <?php else: ?>
                         <div class="text-center py-5">
                             <i class="bi bi-check-circle fs-1 text-success opacity-50 d-block mb-2"></i>
-                            <p class="text-muted mb-0">Nenhum chamado pendente. Tudo tranquilo!</p>
+                            <p class="text-muted mb-0">Nenhum chamado em aberto. Tudo tranquilo!</p>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -661,10 +738,13 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
         <div id="sessao-historico-chamados" class="content-section">
             <div class="card shadow-sm border-0 mb-4" style="border-top: 4px solid #198754;">
                 <div class="card-header bg-white py-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center">
-                    <h5 class="mb-3 mb-md-0 fw-bold d-flex align-items-center text-dark">
-                        <i class="bi bi-headset text-success me-3 fs-4"></i> Chamados Atendidos (Resolvidos)
-                    </h5>
-                    <button class="btn btn-outline-success fw-bold shadow-sm rounded-pill px-4" onclick="exportarTabelaParaCSV('tabela-historico-chamados', 'Relatorio_Chamados_SOS_Uniceplac.csv')">
+                    <div>
+                        <h5 class="mb-1 fw-bold d-flex align-items-center text-dark">
+                            <i class="bi bi-headset text-success me-3 fs-4"></i> Histórico de chamados
+                        </h5>
+                        <p class="text-muted small mb-0">Resolvidos e não resolvidos — com resposta enviada ao professor.</p>
+                    </div>
+                    <button class="btn btn-outline-success fw-bold shadow-sm rounded-pill px-4 mt-2 mt-md-0" onclick="exportarTabelaParaCSV('tabela-historico-chamados', 'Relatorio_Chamados_SOS_Uniceplac.csv')">
                         <i class="bi bi-file-earmark-spreadsheet-fill me-2"></i> Baixar Planilha (CSV)
                     </button>
                 </div>
@@ -673,29 +753,41 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
                         <table id="tabela-historico-chamados" class="table table-striped table-hover align-middle mb-0">
                             <thead class="table-light sticky-top">
                                 <tr>
-                                    <th class="ps-4 py-3">Data/Hora</th>
+                                    <th class="ps-4 py-3">Encerrado em</th>
                                     <th>Laboratório</th>
                                     <th>Professor</th>
-                                    <th>Problema Relatado</th>
+                                    <th>Problema</th>
+                                    <th>Resposta TI</th>
+                                    <th>Atendente</th>
                                     <th class="pe-4">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php if (count($historico_chamados) > 0): ?>
                                     <?php foreach ($historico_chamados as $chamado): ?>
-                                        <tr>
-                                            <td class="ps-4"><strong><?= date('d/m/Y H:i', strtotime($chamado['data_hora'])) ?></strong></td>
+                                        <tr data-sos-json="<?= htmlspecialchars(json_encode([
+                                            'id' => (int) $chamado['id'],
+                                            'professor_nome' => $chamado['professor_nome'] ?? '',
+                                            'laboratorio' => $chamado['laboratorio'] ?? '',
+                                            'mensagem' => $chamado['mensagem'] ?? '',
+                                            'status' => $chamado['status'] ?? 'resolvido',
+                                            'historico' => sos_historico_lista($chamado),
+                                        ], JSON_UNESCAPED_UNICODE), ENT_QUOTES) ?>">
+                                            <td class="ps-4"><strong><?= !empty($chamado['resolvido_em']) ? date('d/m/Y H:i', strtotime($chamado['resolvido_em'])) : date('d/m/Y H:i', strtotime($chamado['data_hora'])) ?></strong></td>
                                             <td class="fw-bold text-dark"><?= htmlspecialchars($chamado['laboratorio']) ?></td>
                                             <td><?= htmlspecialchars($chamado['professor_nome']) ?></td>
-                                            <td class="text-muted small"><?= htmlspecialchars($chamado['mensagem']) ?></td>
+                                            <td class="text-muted small"><?= nl2br(htmlspecialchars($chamado['mensagem'])) ?></td>
+                                            <td class="small"><?= !empty($chamado['resposta_professor']) ? nl2br(htmlspecialchars($chamado['resposta_professor'])) : '<span class="text-muted">—</span>' ?></td>
+                                            <td class="small text-muted"><?= htmlspecialchars($chamado['nome_atendente'] ?? '—') ?></td>
                                             <td class="pe-4">
-                                                <span class="badge bg-success rounded-pill px-3"><i class="bi bi-check-circle me-1"></i>Resolvido</span>
+                                                <?= sos_render_badge($chamado['status'] ?? 'resolvido') ?>
+                                                <button type="button" class="btn btn-link btn-sm p-0 ms-1 btn-atender-chamado">Editar</button>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 <?php else: ?>
                                     <tr>
-                                        <td colspan="5" class="text-center py-5 text-muted">Nenhum chamado resolvido encontrado.</td>
+                                        <td colspan="7" class="text-center py-5 text-muted">Nenhum chamado encerrado encontrado.</td>
                                     </tr>
                                 <?php endif; ?>
                             </tbody>
@@ -708,8 +800,10 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
         <?php require __DIR__ . '/app/Views/partials/sessao-perfil.php'; ?>
 
     </div>
+
+    <?php require __DIR__ . '/app/Views/partials/modal-atender-chamado.php'; sos_render_modal_atendimento(); ?>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/notificacoes-nav.js"></script>
+    <script src="js/notificacoes-nav.js?v=20260619b"></script>
     
     <script>
         function exportarTabelaParaCSV(tableId, filename) {
@@ -782,16 +876,46 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
         }
         window.showSection = showSection;
 
-        let qtdAnterior = 0; 
-        const somAlerta = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); 
-
         function monitorarTempoReal() {
-            fetch('check_sos_status.php')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.qtd_suporte > qtdAnterior) { somAlerta.play().catch(e => console.log("Áudio aguardando interação.")); }
-                    qtdAnterior = data.qtd_suporte;
-                    document.getElementById('area-chamados-dinamica').innerHTML = data.html_suporte;
+            fetch('check_sos_status.php', { credentials: 'same-origin' })
+                .then(function (res) {
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.json();
+                })
+                .then(function (data) {
+                    const area = document.getElementById('area-chamados-dinamica');
+                    if (area) area.innerHTML = data.html_suporte || '';
+                    const badgeSecao = document.querySelector('#sessao-sos-ativos .badge-sos-count');
+                    if (badgeSecao) {
+                        const qtd = parseInt(data.qtd_suporte, 10) || 0;
+                        badgeSecao.textContent = qtd + ' em aberto';
+                        badgeSecao.classList.toggle('d-none', qtd <= 0);
+                    }
+                    const sessaoSos = document.getElementById('sessao-sos-ativos');
+                    if (sessaoSos && sessaoSos.style.display !== 'none') {
+                        fetch('painel_suporte.php?aba=sessao-sos-ativos&_t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
+                            .then(function (res) { return res.text(); })
+                            .then(function (html) {
+                                const doc = new DOMParser().parseFromString(html, 'text/html');
+                                const novoBody = doc.querySelector('#sessao-sos-ativos tbody');
+                                const bodyAtual = document.querySelector('#sessao-sos-ativos tbody');
+                                if (novoBody && bodyAtual && novoBody.innerHTML.trim() !== bodyAtual.innerHTML.trim()) {
+                                    bodyAtual.innerHTML = novoBody.innerHTML;
+                                }
+                                const novoCardBody = doc.querySelector('#sessao-sos-ativos .card-body');
+                                const cardBodyAtual = document.querySelector('#sessao-sos-ativos .card-body');
+                                if (novoCardBody && cardBodyAtual && !novoBody && novoCardBody.innerHTML.trim() !== cardBodyAtual.innerHTML.trim()) {
+                                    cardBodyAtual.innerHTML = novoCardBody.innerHTML;
+                                }
+                            })
+                            .catch(function () {});
+                    }
+                    if (typeof window.recarregarNotificacoes === 'function') {
+                        window.recarregarNotificacoes(true);
+                    }
+                })
+                .catch(function (err) {
+                    console.error('Erro ao atualizar chamados SOS:', err);
                 });
 
             const sessaoMapa = document.getElementById('sessao-mapa-diario');
@@ -847,15 +971,97 @@ function renderizarCardSuporte($l, $chaves_em_uso_assoc, $borda) {
                 btn.textContent = collapsed ? 'Ver descrição completa' : 'Ver menos';
             });
 
+            const modalAtenderEl = document.getElementById('modalAtenderChamado');
+            const modalAtender = modalAtenderEl ? new bootstrap.Modal(modalAtenderEl) : null;
+
+            const sosHistoricoTipos = {
+                status: { label: 'Alteração de status', icon: 'bi-arrow-repeat' },
+                observacao_interna: { label: 'Observação interna', icon: 'bi-journal-text' },
+                resposta_professor: { label: 'Resposta ao professor', icon: 'bi-chat-left-text' },
+                email: { label: 'E-mail enviado', icon: 'bi-envelope-check' }
+            };
+
+            function formatarDataHistorico(iso) {
+                if (!iso) return '—';
+                const d = new Date(String(iso).replace(' ', 'T'));
+                if (Number.isNaN(d.getTime())) return iso;
+                return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            }
+
+            function renderSosHistorico(historico) {
+                const el = document.getElementById('sosModalHistorico');
+                if (!el) return;
+                if (!historico || !historico.length) {
+                    el.innerHTML = '<p class="text-muted small mb-0 fst-italic">Nenhuma atualização registrada ainda.</p>';
+                    return;
+                }
+                el.innerHTML = historico.map(function (entry) {
+                    const tipo = entry.tipo || 'outro';
+                    const meta = sosHistoricoTipos[tipo] || { label: tipo, icon: 'bi-clock-history' };
+                    const texto = (entry.texto || '').replace(/</g, '&lt;').replace(/\n/g, '<br>');
+                    const autor = (entry.autor || 'Suporte TI').replace(/</g, '&lt;');
+                    const statusBadge = entry.status
+                        ? '<span class="badge bg-secondary-subtle text-secondary ms-1">' + entry.status.replace(/_/g, ' ') + '</span>'
+                        : '';
+                    return '<div class="sos-historico-item" data-tipo="' + tipo + '">' +
+                        '<div class="sos-historico-icon"><i class="bi ' + meta.icon + '"></i></div>' +
+                        '<div class="flex-grow-1 min-w-0">' +
+                        '<div class="sos-historico-meta">' +
+                        '<strong>' + meta.label + '</strong> · ' + autor + ' · ' + formatarDataHistorico(entry.em) +
+                        statusBadge +
+                        '</div>' +
+                        '<div class="sos-historico-texto mt-1">' + texto + '</div>' +
+                        '</div></div>';
+                }).join('');
+            }
+
+            function abrirModalChamado(dados) {
+                if (!modalAtender || !dados) return;
+                document.getElementById('sosModalId').value = dados.id;
+                document.getElementById('sosModalStatus').value = dados.status || 'pendente';
+                document.getElementById('sosModalProfessor').value = dados.professor_nome || '';
+                document.getElementById('sosModalObsInterna').value = '';
+                document.getElementById('sosModalResposta').value = '';
+                document.getElementById('sosModalResumo').textContent =
+                    (dados.laboratorio || '') + ' — ' + (dados.professor_nome || '');
+                document.getElementById('sosModalProblema').innerHTML =
+                    '<strong>Problema relatado:</strong><br>' + (dados.mensagem || '').replace(/</g, '&lt;').replace(/\n/g, '<br>');
+                renderSosHistorico(dados.historico || []);
+                document.getElementById('sosModalEnviarEmail').checked = true;
+                modalAtender.show();
+            }
+
+            document.addEventListener('click', function (e) {
+                const btn = e.target.closest('.btn-atender-chamado');
+                if (!btn) return;
+                const row = btn.closest('[data-sos-json]');
+                if (!row) return;
+                try {
+                    abrirModalChamado(JSON.parse(row.getAttribute('data-sos-json')));
+                } catch (err) {
+                    console.error(err);
+                }
+            });
+
             initNotificacoesNav({
+                contexto: 'sos',
                 verTodasFn: 'abrirSosAtivos',
                 badgeIds: ['badge-sos-menu'],
                 playSound: true,
+                somVolume: 0.05,
+                initialIds: <?= json_encode(array_map(static fn($a) => 'sos:' . $a['id'], $alertas_suporte), JSON_UNESCAPED_UNICODE) ?>,
                 sosStyle: true,
-                pollInterval: 120000
+                pollInterval: 30000,
+                onItemClick: function (item) {
+                    if (!item) {
+                        abrirSosAtivos(null);
+                        return;
+                    }
+                    abrirSosAtivos(item);
+                }
             });
 
-            let hashURL = new URLSearchParams(window.location.search).get('aba') || window.location.hash.replace('#', '') || "sessao-mapa-diario";
+            let hashURL = new URLSearchParams(window.location.search).get('aba') || window.location.hash.replace('#', '') || (<?= (int) $qtd_alertas ?> > 0 ? 'sessao-sos-ativos' : 'sessao-mapa-diario');
             showSection(hashURL);
             if (new URLSearchParams(window.location.search).get('aba')) {
                 window.history.replaceState(null, null, '#' + hashURL);

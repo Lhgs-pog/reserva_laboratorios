@@ -1,9 +1,56 @@
+<?php
+if (!function_exists('lh_render_bloco_select')) {
+    function lh_render_bloco_select(string $name, ?string $selected = '', bool $required = false): string
+    {
+        global $blocos_cadastrados;
+        $req = $required ? ' required' : '';
+        $html = '<select name="' . htmlspecialchars($name) . '" class="form-select" data-lh-combobox data-lh-create="blocos" data-lh-value="nome"' . $req . '>';
+        $html .= '<option value="">Selecione o bloco...</option>';
+        $found = false;
+        foreach ($blocos_cadastrados as $b) {
+            $nome = $b['nome'];
+            $sel = ($selected !== '' && $selected === $nome) ? ' selected' : '';
+            if ($sel) {
+                $found = true;
+            }
+            $html .= '<option value="' . htmlspecialchars($nome) . '"' . $sel . '>' . htmlspecialchars($nome) . '</option>';
+        }
+        if ($selected !== '' && !$found) {
+            $html .= '<option value="' . htmlspecialchars($selected) . '" selected>' . htmlspecialchars($selected) . '</option>';
+        }
+        $html .= '</select>';
+        return $html;
+    }
+
+    function lh_render_andar_select(string $name, ?string $selected = '', bool $required = false): string
+    {
+        global $andares_cadastrados;
+        $req = $required ? ' required' : '';
+        $html = '<select name="' . htmlspecialchars($name) . '" class="form-select" data-lh-combobox data-lh-create="andares" data-lh-value="nome"' . $req . '>';
+        $html .= '<option value="">Selecione o andar...</option>';
+        $found = false;
+        foreach ($andares_cadastrados as $a) {
+            $nome = $a['nome'];
+            $sel = ($selected !== '' && $selected === $nome) ? ' selected' : '';
+            if ($sel) {
+                $found = true;
+            }
+            $html .= '<option value="' . htmlspecialchars($nome) . '"' . $sel . '>' . htmlspecialchars($nome) . '</option>';
+        }
+        if ($selected !== '' && !$found) {
+            $html .= '<option value="' . htmlspecialchars($selected) . '" selected>' . htmlspecialchars($selected) . '</option>';
+        }
+        $html .= '</select>';
+        return $html;
+    }
+}
+?>
 <div id="sessao-labs" class="content-section">
         <div class="row g-4">
             <div class="col-md-4">
                 <div class="card shadow-sm border-0" style="border-top: 4px solid var(--info);">
                     <div class="card-header bg-white py-3">
-                        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-plus-circle text-info me-2"></i> Novo
+                        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-plus-circle text-uniceplac me-2"></i> Novo
                             Laboratório</h5>
                     </div>
                     <div class="card-body bg-light">
@@ -11,16 +58,14 @@
                             <div class="mb-3"><label class="form-label small fw-bold">Nome do Lab:</label><input
                                     type="text" name="nome_lab" class="form-control" required
                                     placeholder="Ex: Lab de Redes"></div>
-                            <div class="mb-3"><label class="form-label small fw-bold">Localização / Bloco
-                                    (Opcional):</label><input type="text" name="localizacao_lab" class="form-control"
-                                    placeholder="Ex: Bloco B"></div>
+                            <div class="mb-3"><label class="form-label small fw-bold">Bloco
+                                    (Opcional):</label><?= lh_render_bloco_select('localizacao_lab') ?></div>
                             <div class="mb-3"><label class="form-label small fw-bold">Andar
-                                    (Opcional):</label><input type="text" name="andar_lab" class="form-control"
-                                    placeholder="Ex: 1º Andar"></div>
+                                    (Opcional):</label><?= lh_render_andar_select('andar_lab') ?></div>
                             <div class="mb-3"><label class="form-label small fw-bold">Capacidade
                                     (Lugares):</label><input type="number" name="capacidade_lab" class="form-control"
                                     required></div>
-                            <button type="submit" name="salvar_lab" class="btn btn-info text-white w-100 fw-bold">Salvar
+                            <button type="submit" name="salvar_lab" class="btn btn-uniceplac w-100 fw-bold">Salvar
                                 Laboratório</button>
                         </form>
                     </div>
@@ -89,22 +134,15 @@
                                                                     value="<?= htmlspecialchars($lab['nome']) ?>" required>
                                                             </div>
                                                             <div class="mb-3"><label
-                                                                    class="form-label small fw-bold">Localização /
-                                                                    Bloco:</label><input type="text" name="localizacao_lab"
-                                                                    class="form-control"
-                                                                    value="<?= htmlspecialchars($lab['localizacao'] ?? '') ?>"
-                                                                    placeholder="Ex: Bloco C"></div>
+                                                                    class="form-label small fw-bold">Bloco:</label><?= lh_render_bloco_select('localizacao_lab', $lab['localizacao'] ?? '') ?></div>
                                                             <div class="mb-3"><label
-                                                                    class="form-label small fw-bold">Andar:</label><input
-                                                                    type="text" name="andar_lab" class="form-control"
-                                                                    value="<?= htmlspecialchars($lab['andar'] ?? '') ?>"
-                                                                    placeholder="Ex: Térreo"></div>
+                                                                    class="form-label small fw-bold">Andar:</label><?= lh_render_andar_select('andar_lab', $lab['andar'] ?? '') ?></div>
                                                             <div class="mb-4"><label
                                                                     class="form-label small fw-bold">Capacidade:</label><input
                                                                     type="number" name="capacidade_lab" class="form-control"
                                                                     value="<?= $lab['capacidade'] ?>" required></div>
                                                             <button type="submit" name="editar_lab"
-                                                                class="btn btn-info text-white w-100 fw-bold">Atualizar
+                                                                class="btn btn-uniceplac w-100 fw-bold">Atualizar
                                                                 Laboratório</button>
                                                         </form>
                                                     </div>

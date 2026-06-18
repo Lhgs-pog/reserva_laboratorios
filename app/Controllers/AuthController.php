@@ -1,11 +1,8 @@
 <?php
 namespace App\Controllers;
 
-use App\Models\User;
+use App\Services\MailService;
 use App\Services\UsuarioService;
-use Google\Client as GoogleClient;
-use Google\Service\Oauth2 as GoogleOauth2;
-use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Http\Request;
 
 class AuthController extends BaseController {
@@ -42,13 +39,15 @@ class AuthController extends BaseController {
             unset($_SESSION['success']);
         }
 
-        if ($this->request->query('msg') == 'cadastro_ok') {
-            $sucesso = "Cadastro realizado! <strong>Verifique sua caixa de e-mail</strong> para ativar a conta.";
-        } elseif ($this->request->query('msg') == 'email_confirmado') {
-            $sucesso = "E-mail confirmado com sucesso! Você já pode fazer login.";
+        if ($this->request->query('msg') == 'email_confirmado') {
+            $sucesso = 'E-mail confirmado! Agora faça login com a sua senha.';
+        } elseif ($this->request->query('msg') == 'acesso_coordenador') {
+            $erro = 'O acesso é criado pela coordenação. Peça ao coordenador para cadastrar seu e-mail e enviar a confirmação.';
         }
 
-        return compact('erro', 'sucesso');
+        $redirect = trim((string) $this->request->query('redirect', ''));
+
+        return compact('erro', 'sucesso', 'redirect');
     }
 
     /**
@@ -65,13 +64,15 @@ class AuthController extends BaseController {
 
         $hash = $usuario['senha'] ?? '';
         if ($usuario && is_string($hash) && $hash !== '' && password_verify($senha_digitada, $hash)) {
-            // [DESABILITADO] Verificação de e-mail obrigatória — não é essencial por enquanto.
-            // Reativar quando o fluxo de SMTP estiver configurado em produção.
-            // if ($usuario->email_verificado == 0) {
-            //     $this->redirectWithError('index.php', "Seu acesso está bloqueado. Por favor, confirme seu e-mail.");
-            // }
-
-            session_regenerate_id(true);
+            $stmtVer = $pdo->prepare('SELECT email_verificado FROM usuarios WHERE id = ? LIMIT 1');
+            $stmtVer->execute([(int) $usuario['id']]);
+            $emailVerificado = $stmtVer->fetchColumn();
+            if ($emailVerificado === false || $emailVerificado === 0 || $emailVerificado === '0' || $emailVerificado === 'f') {
+                $this->redirectWithError(
+                    'index.php',
+                    'Confirme seu e-mail pelo link enviado antes de entrar. Verifique também a pasta de spam.'
+                );
+            }
 
             $_SESSION['usuario_id']  = $usuario['id'];
             $_SESSION['nome']        = $usuario['nome'];
@@ -79,13 +80,16 @@ class AuthController extends BaseController {
             $_SESSION['perfil']      = $usuario['perfil'];
             $_SESSION['foto_perfil'] = $usuario['foto_perfil'] ?? null;
 
-            $destinos = [
-                'coordenador' => 'painel_coordenador.php',
-                'suporte'     => 'painel_suporte.php',
-                'professor'   => 'painel_professor.php',
-            ];
+            if ($this->request->input('lembrar_me')) {
+                try {
+                    labhub_issue_remember_token($pdo, (int) $usuario['id']);
+                } catch (\Throwable $e) {
+                    error_log('[AuthController] remember-me: ' . $e->getMessage());
+                }
+            }
 
-            $url = $destinos[$usuario['perfil']] ?? 'index.php';
+            $returnUrl = trim((string) $this->request->input('redirect', ''));
+            $url = labhub_login_destination((string) $usuario['perfil'], $returnUrl !== '' ? $returnUrl : null);
             $this->redirect($url);
         } elseif ($usuario && (empty($usuario['senha']) || !is_string($usuario['senha']))) {
             $this->redirectWithError('index.php', 'Sua conta ainda não tem senha. Use «Esqueci minha senha» ou peça à coordenação para reenviar o link.');
@@ -108,7 +112,7 @@ class AuthController extends BaseController {
                 $tipo = 'danger';
             } else {
                 $usuarioSvc = new UsuarioService();
-                $mailSvc    = new \App\Services\MailService();
+                $mailSvc    = new MailService();
                 $user = $usuarioSvc->buscarPorEmail($email);
                 if ($user && $mailSvc->isConfigured()) {
                     $token = $usuarioSvc->gerarTokenRedefinicao((int) $user['id']);
@@ -126,194 +130,21 @@ class AuthController extends BaseController {
     }
 
     /**
-     * Página de cadastro
-     */
-    public function cadastro() {
-        if ($this->request->isMethod('post')) {
-            return $this->processCadastro();
-        }
-
-        $mensagem = '';
-        return compact('mensagem');
-    }
-
-    /**
-     * Processa cadastro
-     */
-    private function processCadastro() {
-        $nome = trim($this->request->input('nome'));
-        $email = trim($this->request->input('email'));
-        $senha = $this->request->input('senha');
-        $senha_confirm = $this->request->input('confirmar_senha');
-        
-        $mensagem = '';
-
-        if (!app_email_institucional_valido($email)) {
-            $mensagem = '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Informe um <strong>e-mail válido</strong>.</div>';
-        } elseif ($senha !== $senha_confirm) {
-            $mensagem = '<div class="alert alert-danger"><i class="bi bi-shield-x me-2"></i>As senhas não coincidem.</div>';
-        } elseif (strlen($senha) < 6) {
-            $mensagem = '<div class="alert alert-danger"><i class="bi bi-shield-x me-2"></i>A senha deve ter pelo menos 6 caracteres.</div>';
-        } else {
-            try {
-                $usuarioSvc = new UsuarioService();
-                $usuarioSvc->criar($nome, $email, 'professor', $senha, 1);
-                $this->redirect('index.php?msg=cadastro_ok');
-            } catch (\InvalidArgumentException $e) {
-                $mensagem = '<div class="alert alert-danger"><i class="bi bi-person-x-fill me-2"></i>' . htmlspecialchars($e->getMessage()) . '</div>';
-            } catch (\Throwable $e) {
-                error_log('[AuthController] cadastro: ' . $e->getMessage());
-                $mensagem = '<div class="alert alert-danger"><i class="bi bi-x-circle-fill me-2"></i>Erro ao cadastrar. Tente novamente ou contate a coordenação.</div>';
-            }
-        }
-        return compact('mensagem');
-    }
-
-    /**
-     * Envia e-mail de verificação após cadastro
-     */
-    private function enviarEmailVerificacao(string $email, string $nome, string $token): void {
-        $mailerPath = __DIR__ . '/../../PHPMailer/src/';
-        require_once $mailerPath . 'Exception.php';
-        require_once $mailerPath . 'PHPMailer.php';
-        require_once $mailerPath . 'SMTP.php';
-
-        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-
-        try {
-            // Configuração SMTP — ajuste as credenciais no .env ou diretamente aqui
-            $mail->isSMTP();
-            $mail->Host       = $_ENV['MAIL_HOST']       ?? 'smtp.gmail.com';
-            $mail->SMTPAuth   = true;
-            $mail->Username   = $_ENV['MAIL_USERNAME']   ?? '';
-            $mail->Password   = $_ENV['MAIL_PASSWORD']   ?? '';
-            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port       = (int)($_ENV['MAIL_PORT'] ?? 587);
-            $mail->CharSet    = 'UTF-8';
-
-            $mail->setFrom(
-                $_ENV['MAIL_FROM_ADDRESS'] ?? $mail->Username,
-                $_ENV['MAIL_FROM_NAME']    ?? 'Central de Reservas UNICEPLAC'
-            );
-            $mail->addAddress($email, $nome);
-
-            $baseUrl = rtrim($_ENV['APP_URL'] ?? 'http://localhost/labs', '/');
-            $link    = $baseUrl . '/verificar.php?token=' . urlencode($token);
-
-            $mail->isHTML(true);
-            $mail->Subject = 'Confirme seu e-mail — Reserva de Laboratórios';
-            $mail->Body    = "
-                <p>Olá, <strong>" . htmlspecialchars($nome) . "</strong>!</p>
-                <p>Clique no link abaixo para ativar sua conta:</p>
-                <p><a href=\"{$link}\">{$link}</a></p>
-                <p>Se você não criou esta conta, ignore este e-mail.</p>
-            ";
-            $mail->AltBody = "Acesse o link para ativar sua conta: {$link}";
-
-            $mail->send();
-        } catch (\Exception $e) {
-            // Loga o erro mas não interrompe o fluxo — o usuário já foi cadastrado
-            error_log('[enviarEmailVerificacao] Falha ao enviar e-mail para ' . $email . ': ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Login via Google OAuth2
-     */
-    public function loginGoogle() {
-        require_once __DIR__ . '/../Config/env.php';
-        app_load_env(dirname(__DIR__, 2));
-
-        $clientId = app_env('GOOGLE_CLIENT_ID', '');
-        $clientSecret = app_env('GOOGLE_CLIENT_SECRET', '');
-        $redirectUri = app_env('GOOGLE_REDIRECT_URI', 'http://localhost:8080/login_google.php');
-
-        if ($clientId === '' || $clientSecret === '') {
-            $this->redirectWithError('index.php', 'Login Google não configurado. Use e-mail e senha.');
-        }
-
-        $client = new GoogleClient();
-        $client->setClientId($clientId);
-        $client->setClientSecret($clientSecret);
-        $client->setRedirectUri($redirectUri);
-        $client->addScope("email");
-        $client->addScope("profile");
-
-        // Bypassa validação de SSL local
-        $guzzleClient = new GuzzleClient(['verify' => false]);
-        $client->setHttpClient($guzzleClient);
-
-        // Se não houver código, redireciona o usuário pro Google
-        if (!$this->request->has('code')) {
-            $authUrl = $client->createAuthUrl();
-            header("Location: " . filter_var($authUrl, FILTER_SANITIZE_URL));
-            exit;
-        }
-
-        // --- CALLBACK ---
-        try {
-            $token = $client->fetchAccessTokenWithAuthCode($this->request->input('code'));
-            if (isset($token['error'])) {
-                throw new \Exception($token['error_description'] ?? 'Erro ao obter token do Google');
-            }
-
-            $client->setAccessToken($token['access_token']);
-            $google_oauth = new GoogleOauth2($client);
-            $google_account_info = $google_oauth->userinfo->get();
-
-            $email = $google_account_info->email;
-            $nome = $google_account_info->name;
-            $google_id = $google_account_info->id;
-            $foto_perfil = $google_account_info->picture;
-
-            // Eloquent: Verifica se o usuário existe
-            $usuario = User::where('email', $email)->first();
-
-            if ($usuario) {
-                // Atualiza dados do Google se for um usuário legado que entrou com Google agora
-                $usuario->update([
-                    'google_id' => $google_id,
-                    'foto_perfil' => $foto_perfil,
-                    'email_verificado' => 1
-                ]);
-            } else {
-                // Eloquent: Criação de novo usuário do Google
-                $usuario = User::create([
-                    'nome' => $nome,
-                    'email' => $email,
-                    'google_id' => $google_id,
-                    'foto_perfil' => $foto_perfil,
-                    'perfil' => 'professor',
-                    'email_verificado' => 1
-                ]);
-            }
-
-            session_regenerate_id(true);
-
-            $_SESSION['usuario_id']  = $usuario->id;
-            $_SESSION['nome']        = $usuario->nome;
-            $_SESSION['perfil']      = $usuario->perfil;
-            $_SESSION['foto_perfil'] = $usuario->foto_perfil;
-
-            $destinos = [
-                'coordenador' => 'painel_coordenador.php',
-                'suporte'     => 'painel_suporte.php',
-                'professor'   => 'painel_professor.php',
-            ];
-
-            $url = $destinos[$usuario->perfil] ?? 'index.php';
-            $this->redirect($url);
-
-        } catch (\Exception $e) {
-            $this->redirectWithError('index.php', "Erro no login com Google: " . $e->getMessage());
-        }
-    }
-
-    /**
      * Logout
      */
     public function logout() {
-        session_destroy();
+        if (isset($_SESSION['usuario_id'])) {
+            try {
+                $pdo = \App\Config\Database::getInstance()->getPDO();
+                labhub_revoke_remember_tokens($pdo, (int) $_SESSION['usuario_id']);
+            } catch (\Throwable $e) {
+            }
+        }
+        labhub_clear_remember_cookie();
+        $_SESSION = [];
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
+        }
         $this->redirect('index.php');
     }
 
@@ -321,32 +152,31 @@ class AuthController extends BaseController {
      * Verifica email por token
      */
     public function verificarEmail() {
-        $mensagem   = "";
-        $tipo_alerta = "";
-
-        if (isset($_GET['token']) && !empty(trim($_GET['token']))) {
+        if (isset($_GET['token']) && trim($_GET['token']) !== '') {
             $token = trim($_GET['token']);
 
             try {
-                $usuarioSvc = new \App\Services\UsuarioService();
+                $usuarioSvc = new UsuarioService();
                 $usuario    = $usuarioSvc->buscarPorTokenVerificacao($token);
 
                 if ($usuario) {
                     $usuarioSvc->confirmarEmail((int) $usuario['id']);
-                    $mensagem    = "Excelente, " . htmlspecialchars($usuario['nome']) . "! Seu e-mail foi verificado com sucesso.";
-                    $tipo_alerta = "success";
-                } else {
-                    $mensagem    = "Link de verificação inválido ou sua conta já foi verificada anteriormente.";
-                    $tipo_alerta = "danger";
+                    $this->redirect('index.php?msg=email_confirmado');
+                }
+
+                $linkSenha = $usuarioSvc->buscarPorTokenRedefinicao($token);
+                if ($linkSenha && !empty($linkSenha['token_expira_em'])) {
+                    $mensagem    = 'Este link é para <strong>criar ou redefinir senha</strong>, não para confirmar o e-mail. Peça à coordenação um novo e-mail de confirmação ou use «Esqueci minha senha» após confirmar.';
+                    $tipo_alerta = 'warning';
+                    return compact('mensagem', 'tipo_alerta');
                 }
             } catch (\Exception $e) {
-                $mensagem    = "Erro ao conectar com o banco de dados: " . $e->getMessage();
-                $tipo_alerta = "danger";
+                error_log('[AuthController] verificarEmail: ' . $e->getMessage());
             }
-        } else {
-            $mensagem    = "Nenhum código de verificação foi fornecido. Por favor, acesse o link enviado para o seu e-mail.";
-            $tipo_alerta = "warning";
         }
+
+        $mensagem    = 'Link de verificação inválido ou expirado. Peça um novo envio à coordenação ou faça login se já confirmou antes.';
+        $tipo_alerta = 'danger';
 
         return compact('mensagem', 'tipo_alerta');
     }

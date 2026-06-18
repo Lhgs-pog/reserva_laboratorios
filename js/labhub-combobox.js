@@ -81,7 +81,7 @@
         input.type = 'text';
         input.className = 'form-control lh-combobox-input' + (select.classList.contains('form-select-lg') ? ' form-control-lg' : '');
         input.autocomplete = 'off';
-        input.placeholder = select.options[0]?.text || 'Digite para buscar...';
+        input.placeholder = select.getAttribute('data-lh-placeholder') || select.options[0]?.text || 'Digite para buscar...';
         wrap.insertBefore(input, select);
 
         const dropdown = document.createElement('div');
@@ -90,11 +90,14 @@
 
         const createType = select.dataset.lhCreate || '';
         const canCreate = window.LABHUB_CAN_CREATE !== false && createType !== '';
-        let options = buildOptionsFromSelect(select);
+
+        function currentOptions() {
+            return buildOptionsFromSelect(select);
+        }
 
         function syncInputFromSelect() {
             const opt = select.options[select.selectedIndex];
-            input.value = opt && opt.value ? opt.text : '';
+            input.value = opt && opt.value ? (opt.text || opt.textContent || '') : '';
             input.classList.remove('is-invalid-lite');
         }
 
@@ -109,10 +112,9 @@
             if (!found && value) {
                 const opt = document.createElement('option');
                 opt.value = value;
-                opt.text = label;
+                opt.textContent = label;
                 opt.selected = true;
                 select.appendChild(opt);
-                options.push({ value: value, label: label, element: opt });
             }
             input.value = label;
             dropdown.classList.add('d-none');
@@ -121,6 +123,7 @@
 
         function renderDropdown(query) {
             const nq = norm(query);
+            const options = currentOptions();
             dropdown.innerHTML = '';
             const matches = options.filter(function (o) {
                 return !nq || norm(o.label).includes(nq);
@@ -167,7 +170,8 @@
             dropdown.classList.remove('d-none');
         }
 
-        input.addEventListener('focus', function () { renderDropdown(input.value); });
+        input.addEventListener('focus', function () { renderDropdown(''); });
+        input.addEventListener('click', function () { renderDropdown(''); });
         input.addEventListener('input', function () {
             select.value = '';
             renderDropdown(input.value);
@@ -187,7 +191,65 @@
         });
 
         syncInputFromSelect();
+
+        select.lhComboboxRefresh = function () {
+            syncInputFromSelect();
+            input.disabled = select.disabled;
+            input.placeholder = select.getAttribute('data-lh-placeholder')
+                || (select.options[0] && !select.options[0].value ? select.options[0].text : '')
+                || 'Digite para buscar...';
+        };
+
+        select.lhComboboxRender = function (query) {
+            renderDropdown(query != null ? query : '');
+        };
+
+        wrap._lhComboboxInput = input;
+        wrap._lhComboboxDropdown = dropdown;
     }
+
+    window.setLabhubComboboxOptions = function (select, items, cfg) {
+        if (!select) return;
+        cfg = cfg || {};
+        const placeholder = cfg.placeholder || select.getAttribute('data-lh-placeholder') || 'Selecione...';
+
+        select.innerHTML = '';
+        const ph = document.createElement('option');
+        ph.value = '';
+        ph.textContent = placeholder;
+        select.appendChild(ph);
+
+        (items || []).forEach(function (item) {
+            const opt = document.createElement('option');
+            opt.value = String(item.id != null ? item.id : item.value);
+            opt.textContent = item.label || item.nome || item.text || '';
+            select.appendChild(opt);
+        });
+
+        select.value = '';
+        select.disabled = !!cfg.disabled;
+        select.removeAttribute('required');
+        if (cfg.required) select.required = true;
+
+        if (select.dataset.lhEnhanced !== '1') {
+            window.initLabhubComboboxes(select.parentElement || document);
+        }
+
+        const wrap = select.closest('.lh-combobox');
+        const input = wrap ? wrap.querySelector('.lh-combobox-input') : null;
+        if (input) {
+            input.value = '';
+            input.placeholder = placeholder;
+            input.disabled = !!cfg.disabled;
+        }
+
+        if (typeof select.lhComboboxRefresh === 'function') {
+            select.lhComboboxRefresh();
+        }
+        if (typeof select.lhComboboxRender === 'function') {
+            select.lhComboboxRender('');
+        }
+    };
 
     function enhancePick(input) {
         if (input.dataset.lhEnhanced === '1') return;
@@ -268,6 +330,7 @@
     window.initLabhubComboboxes = function (root) {
         (root || document).querySelectorAll('select[data-lh-combobox]').forEach(enhanceSelect);
         (root || document).querySelectorAll('[data-lh-pick]').forEach(enhancePick);
+        document.dispatchEvent(new CustomEvent('labhub-combobox-ready'));
     };
 
     document.addEventListener('DOMContentLoaded', function () {

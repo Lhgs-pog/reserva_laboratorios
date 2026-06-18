@@ -26,7 +26,7 @@ services:
       MYSQL_PASSWORD: labs123
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./sistema_labs.sql:/docker-entrypoint-initdb.d/sistema_labs.sql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
 
   phpmyadmin:
       image: phpmyadmin:latest

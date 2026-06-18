@@ -1,6 +1,8 @@
 <?php
 namespace App\Controllers;
 
+require_once __DIR__ . '/../Config/session_bootstrap.php';
+
 class BaseController {
     protected $data = [];
 
@@ -24,6 +26,9 @@ class BaseController {
      * Redireciona para uma URL
      */
     protected function redirect($url) {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         header("Location: $url");
         exit;
     }
@@ -49,7 +54,7 @@ class BaseController {
      */
     protected function requireAuth() {
         if (!isset($_SESSION['usuario_id'])) {
-            $this->redirect('index.php');
+            labhub_redirect_login('expired');
         }
     }
 
@@ -59,7 +64,7 @@ class BaseController {
     protected function requirePerfil($perfil) {
         $this->requireAuth();
         if ($_SESSION['perfil'] !== $perfil) {
-            $this->redirect('index.php');
+            labhub_redirect_login('expired');
         }
     }
 

@@ -1,54 +1,90 @@
 <?php
-session_start();
+require_once __DIR__ . '/app/Config/session_bootstrap.php';
+labhub_session_start();
 
 if (!isset($_SESSION['usuario_id']) || $_SESSION['perfil'] !== 'professor') {
-    header("Location: index.php");
-    exit;
+    labhub_redirect_login('expired');
+}
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    require_once __DIR__ . '/app/Config/csrf_helpers.php';
+    labhub_csrf_require_post();
 }
 
 require 'conexao.php';
-require 'Agendamento.php';
+require_once __DIR__ . '/bootstrap.php';
+labhub_register_autoload();
+require_once __DIR__ . '/app/Config/feriados_helpers.php';
+require_once __DIR__ . '/app/Config/calendario_helpers.php';
+require_once __DIR__ . '/app/Config/horario_helpers.php';
+require_once __DIR__ . '/app/Config/disponibilidade_helpers.php';
+
+use App\Models\Agendamento;
+use App\Services\ListaEsperaService;
 
 // Garante que o PHP valide a hora de Brasília
 date_default_timezone_set('America/Sao_Paulo');
 
-$agendamento = new Agendamento($pdo);
+$agendamento = new Agendamento();
 $mensagem = '';
 $id_professor_logado = $_SESSION['usuario_id'];
-$aba_ativa = 'sessao-calendario'; // Inicia no calendário
+if (!empty($_SESSION['professor_flash'])) {
+    $mensagem = $_SESSION['professor_flash'];
+    unset($_SESSION['professor_flash']);
+}
+if (!empty($_SESSION['professor_aba'])) {
+    $aba_ativa = $_SESSION['professor_aba'];
+    unset($_SESSION['professor_aba']);
+} else {
+    $aba_ativa = 'sessao-calendario';
+}
 
-// =================================================================================
-// NOVA FUNÇÃO: O "DUPLO CHECK" PARA O PROFESSOR (Avulsos vs Grade Fixa)
-// =================================================================================
-function verificaChoqueHorario($pdo, $id_lab, $data_reserva, $turno, $periodo) {
-    $stmt_ag = $pdo->prepare("SELECT periodo FROM agendamentos WHERE id_laboratorio = ? AND data_reserva = ? AND turno = ? AND status = 'aprovado'");
-    $stmt_ag->execute([$id_lab, $data_reserva, $turno]);
-    $avulsos = $stmt_ag->fetchAll(PDO::FETCH_COLUMN);
-    
-    foreach ($avulsos as $p_banco) {
-        if ($periodo === '1º e 2º Horários' || $p_banco === '1º e 2º Horários' || $periodo === $p_banco) {
-            return "Já existe uma reserva aprovada para outro professor neste laboratório nesse dia e horário.";
+// --- AJAX: laboratórios livres para solicitação ---
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'labs_disponiveis') {
+    header('Content-Type: application/json; charset=utf-8');
+
+    try {
+        $data = trim((string) ($_GET['data_reserva'] ?? ''));
+        $turno = trim((string) ($_GET['turno'] ?? ''));
+        $periodo = trim((string) ($_GET['periodo'] ?? ''));
+        $turnosValidos = ['Matutino', 'Vespertino', 'Noturno'];
+        $periodosValidos = ['1º e 2º Horários', '1º Horário', '2º Horário'];
+
+        if ($data === '' || $turno === '' || $periodo === '') {
+            echo json_encode(['ok' => false, 'error' => 'Informe data, turno e horário.'], JSON_UNESCAPED_UNICODE);
+            exit;
         }
-    }
-    
-    $dias_map = [0 => 'Domingo', 1 => 'Segunda', 2 => 'Terça', 3 => 'Quarta', 4 => 'Quinta', 5 => 'Sexta', 6 => 'Sábado'];
-    $dia_semana = $dias_map[date('w', strtotime($data_reserva))];
-    
-    $id_quadro_ativo = false;
-    try { $id_quadro_ativo = $pdo->query("SELECT id FROM quadros_horarios ORDER BY id DESC LIMIT 1")->fetchColumn(); } catch(Exception $e) {}
-    
-    if ($id_quadro_ativo) {
-        $stmt_qa = $pdo->prepare("SELECT horario FROM quadro_aulas WHERE id_quadro = ? AND id_laboratorio = ? AND dia_semana = ? AND turno = ?");
-        $stmt_qa->execute([$id_quadro_ativo, $id_lab, $dia_semana, $turno]);
-        $fixos = $stmt_qa->fetchAll(PDO::FETCH_COLUMN);
-        
-        foreach ($fixos as $h_fixo) {
-            if ($periodo === '1º e 2º Horários' || $h_fixo === '1º e 2º Horários' || $periodo === $h_fixo) {
-                return "A Grade Fixa Oficial já ocupa este laboratório toda " . $dia_semana . " (" . $turno . ").";
-            }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $data) || strtotime($data) === false) {
+            echo json_encode(['ok' => false, 'error' => 'Data inválida.'], JSON_UNESCAPED_UNICODE);
+            exit;
         }
+        if ($data < date('Y-m-d')) {
+            echo json_encode(['ok' => false, 'error' => 'A data não pode ser no passado.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        if (!in_array($turno, $turnosValidos, true) || !in_array($periodo, $periodosValidos, true)) {
+            echo json_encode(['ok' => false, 'error' => 'Turno ou horário inválido.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $todos = labhub_labs_para_slot($pdo, $data, $turno, $periodo);
+        $livres = array_values(array_filter($todos, static fn($l) => $l['status'] === 'livre'));
+
+        $listaEsperaSvc = new ListaEsperaService($pdo);
+        $fila = $listaEsperaSvc->resumoFila($id_professor_logado, $data, $turno, $periodo);
+
+        echo json_encode([
+            'ok' => true,
+            'labs' => $livres,
+            'total_livres' => count($livres),
+            'total_labs' => count($todos),
+            'ja_na_fila' => $fila !== null,
+            'posicao_fila' => $fila['posicao'] ?? null,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {
+        echo json_encode(['ok' => false, 'error' => 'Erro ao consultar disponibilidade.'], JSON_UNESCAPED_UNICODE);
     }
-    return false; // Caminho livre! Nenhum conflito.
+    exit;
 }
 
 // --- LÓGICA: REGISTRAR RETIRADA DE CHAVE (COM TRAVA DE HORÁRIO AJUSTADA) ---
@@ -81,12 +117,32 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['registrar_retirada']))
 
 // --- LÓGICA: ACIONAR SUPORTE (SOS) ---
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['acao_sos'])) {
-    try {
-        $stmt = $pdo->prepare("INSERT INTO chamados_suporte (id_professor, professor_nome, laboratorio, mensagem) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$id_professor_logado, $_SESSION['nome'], $_POST['laboratorio_sos'], trim($_POST['mensagem_sos'])]);
-        $mensagem = '<div class="alert alert-success alert-autohide rounded-0 border-0 border-start border-4 border-success shadow-sm mb-4"><i class="bi bi-check-circle-fill me-2"></i><strong>Chamado enviado!</strong> O suporte técnico foi notificado.</div>';
-    } catch (PDOException $e) { $mensagem = '<div class="alert alert-danger alert-autohide mb-4">Erro ao chamar suporte.</div>'; }
+    $labSos = trim((string) ($_POST['laboratorio_sos'] ?? ''));
+    $msgSos = trim((string) ($_POST['mensagem_sos'] ?? ''));
+    if ($labSos === '' || $msgSos === '') {
+        $mensagem = '<div class="alert alert-warning alert-autohide mb-4">Informe o laboratório e descreva o problema.</div>';
+        $aba_ativa = 'sessao-chamados-ti';
+    } else {
+        try {
+            $stmt = $pdo->prepare("INSERT INTO chamados_suporte (id_professor, professor_nome, laboratorio, mensagem) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$id_professor_logado, $_SESSION['nome'], $labSos, $msgSos]);
+            $_SESSION['professor_flash'] = '<div class="alert alert-success alert-autohide rounded-0 border-0 border-start border-4 border-success shadow-sm mb-4"><i class="bi bi-check-circle-fill me-2"></i><strong>Chamado enviado!</strong> O suporte técnico foi notificado.</div>';
+            $_SESSION['professor_aba'] = 'sessao-chamados-ti';
+            header('Location: painel_professor.php?aba=sessao-chamados-ti');
+            exit;
+        } catch (PDOException $e) {
+            $mensagem = '<div class="alert alert-danger alert-autohide mb-4">Erro ao chamar suporte.</div>';
+            $aba_ativa = 'sessao-chamados-ti';
+        }
+    }
 }
+
+$meus_chamados_ti = [];
+try {
+    $stmtCh = $pdo->prepare("SELECT * FROM chamados_suporte WHERE id_professor = ? ORDER BY data_hora DESC LIMIT 40");
+    $stmtCh->execute([$id_professor_logado]);
+    $meus_chamados_ti = $stmtCh->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {}
 
 // --- LÓGICA: UPLOAD DE FOTO DE PERFIL ---
 if (isset($_FILES['nova_foto']) && $_FILES['nova_foto']['error'] === UPLOAD_ERR_OK) {
@@ -109,10 +165,35 @@ if (isset($_FILES['nova_foto']) && $_FILES['nova_foto']['error'] === UPLOAD_ERR_
     }
 }
 
+// --- LÓGICA: LISTA DE ESPERA (laboratórios lotados) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_lista_espera'])) {
+    $aba_ativa = 'sessao-solicitar';
+    $listaEsperaSvc = new ListaEsperaService($pdo);
+    $resultado = $listaEsperaSvc->inscrever(
+        $id_professor_logado,
+        (int) ($_POST['id_disciplina'] ?? 0),
+        trim((string) ($_POST['data_reserva'] ?? '')),
+        trim((string) ($_POST['turno'] ?? '')),
+        trim((string) ($_POST['periodo'] ?? ''))
+    );
+    if ($resultado['ok']) {
+        $mensagem = '<div class="alert alert-success alert-autohide rounded-0 border-start border-4 border-success mb-4 shadow-sm"><i class="bi bi-hourglass-bottom me-2"></i><strong>Lista de espera:</strong> ' . htmlspecialchars($resultado['msg']) . '</div>';
+        $aba_ativa = 'sessao-historico';
+    } else {
+        $mensagem = '<div class="alert alert-warning alert-autohide rounded-0 border-start border-4 border-warning mb-4 shadow-sm"><i class="bi bi-exclamation-triangle-fill me-2"></i>' . htmlspecialchars($resultado['msg']) . '</div>';
+    }
+}
+
 // --- LÓGICA: SOLICITAR AGENDAMENTO COM DUPLO CHECK ---
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['data_reserva'])) {
+elseif ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['data_reserva']) && !empty($_POST['id_laboratorio'])) {
     $aba_ativa = 'sessao-solicitar'; 
-    $conflito = verificaChoqueHorario($pdo, $_POST['id_laboratorio'], $_POST['data_reserva'], $_POST['turno'], $_POST['periodo']);
+    $conflito = labhub_verifica_choque_horario(
+        $pdo,
+        (int) $_POST['id_laboratorio'],
+        $_POST['data_reserva'],
+        $_POST['turno'],
+        $_POST['periodo']
+    );
     if ($conflito) {
         $mensagem = '<div class="alert alert-warning alert-autohide rounded-0 border-start border-4 border-warning mb-4 shadow-sm"><i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Não foi possível solicitar:</strong> ' . $conflito . '</div>';
     } else {
@@ -131,6 +212,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['data_reserva'])) {
 $laboratorios = $agendamento->buscarLaboratorios();
 $disciplinas = $agendamento->buscarDisciplinas();
 $minhas_alocacoes = $agendamento->listarAlocacoesProfessor($id_professor_logado); // Avulsos
+
+$minha_lista_espera = [];
+try {
+    require_once __DIR__ . '/app/Config/lista_espera_schema.php';
+    $listaEsperaModel = new \App\Models\ListaEspera();
+    $minha_lista_espera = $listaEsperaModel->listarAguardandoProfessor($id_professor_logado);
+    foreach ($minha_lista_espera as &$leRow) {
+        $leRow['posicao'] = $listaEsperaModel->posicaoNaFila((int) $leRow['id']);
+    }
+    unset($leRow);
+} catch (Throwable $e) {}
 
 $chaves_retiradas = [];
 try {
@@ -183,21 +275,7 @@ $eventos_calendario = [];
 
 if (!function_exists('converterHorario')) {
     function converterHorario($turno, $periodo) {
-        $start = '00:00:00'; $end = '01:00:00';
-        if ($turno == 'Matutino') {
-            if ($periodo == '1º Horário') { $start = '08:20:00'; $end = '10:00:00'; }
-            elseif ($periodo == '2º Horário') { $start = '10:15:00'; $end = '11:55:00'; }
-            else { $start = '08:20:00'; $end = '11:55:00'; }
-        } elseif ($turno == 'Vespertino') {
-            if ($periodo == '1º Horário') { $start = '14:20:00'; $end = '16:00:00'; }
-            elseif ($periodo == '2º Horário') { $start = '16:20:00'; $end = '18:00:00'; }
-            else { $start = '14:20:00'; $end = '18:00:00'; }
-        } elseif ($turno == 'Noturno') {
-            if ($periodo == '1º Horário') { $start = '19:20:00'; $end = '21:00:00'; }
-            elseif ($periodo == '2º Horário') { $start = '21:10:00'; $end = '22:50:00'; }
-            else { $start = '19:20:00'; $end = '22:50:00'; }
-        }
-        return [$start, $end];
+        return labhub_horario_intervalo_sql((string) $turno, (string) $periodo);
     }
 }
 
@@ -208,20 +286,20 @@ foreach ($stmt_av->fetchAll(PDO::FETCH_ASSOC) as $av) {
     list($start, $end) = converterHorario($av['turno'], $av['periodo']);
     if ($av['status'] === 'aprovado') {
         $classe = 'apple-event-avulsa';
-        $label_status = '';
     } elseif ($av['status'] === 'pendente') {
         $classe = 'apple-event-pendente';
-        $label_status = ' ⏳ Pendente';
     } else {
         $classe = 'apple-event-rejeitado';
-        $label_status = ' ✗ Rejeitado';
     }
     $eventos_calendario[] = [
-        'title' => $av['disc_nome'] . $label_status,
+        'title' => $av['disc_nome'],
         'start' => $av['data_reserva'] . 'T' . $start,
         'end'   => $av['data_reserva'] . 'T' . $end,
         'className' => $classe,
-        'extendedProps' => [ 'local' => '<i class="bi bi-pc-display me-1"></i> Lab: ' . htmlspecialchars($av['lab_nome']) ]
+        'extendedProps' => [
+            'local' => '<i class="bi bi-pc-display me-1"></i> Lab: ' . htmlspecialchars($av['lab_nome']),
+            'estado' => $av['status'],
+        ],
     ];
 }
 
@@ -268,44 +346,32 @@ if ($id_quadro_ativo) {
     }
 }
 
-// 3. INJEÇÃO DE FERIADOS NACIONAIS 2026
-$feriados_2026 = [
-    '2026-01-01' => 'Ano Novo',
-    '2026-02-16' => 'Recesso de Carnaval',
-    '2026-02-17' => 'Carnaval',
-    '2026-04-03' => 'Paixão de Cristo',
-    '2026-04-21' => 'Tiradentes',
-    '2026-05-01' => 'Dia do Trabalho',
-    '2026-06-04' => 'Corpus Christi',
-    '2026-09-07' => 'Independência do Brasil',
-    '2026-10-12' => 'Nossa Sra. Aparecida',
-    '2026-11-02' => 'Finados',
-    '2026-11-15' => 'Proclamação da República',
-    '2026-12-25' => 'Natal'
-];
-
-foreach ($feriados_2026 as $data => $nome_feriado) {
-    $eventos_calendario[] = [
-        'title' => 'Feriado: ' . $nome_feriado,
-        'start' => $data,
-        'allDay' => true,
-        'className' => 'apple-event-feriado',
-        'extendedProps' => [ 'local' => '<i class="bi bi-calendar-x me-1"></i> Instituição Fechada' ]
-    ];
+// 3. Feriados (BrasilAPI) + pontos facultativos DF
+foreach (labhub_feriados_eventos_calendario() as $ev) {
+    $eventos_calendario[] = $ev;
 }
+$feriados_datas_json = labhub_feriados_mapa_datas_json();
 
-$eventos_json = json_encode($eventos_calendario);
+$eventos_json = labhub_cal_eventos_json($eventos_calendario);
 // =================================================================================
 
 $qtd_pendentes = 0; $proximas_matutino = []; $proximas_vespertino = []; $proximas_noturno = [];
+$notif_initial_ids = [];
 foreach ($minhas_alocacoes as $alocacao) {
-    if ($alocacao['status'] === 'pendente') { $qtd_pendentes++; } 
+    if ($alocacao['status'] === 'pendente') {
+        $qtd_pendentes++;
+        $notif_initial_ids[] = 'reserva:' . $alocacao['id'];
+    } 
     elseif ($alocacao['status'] === 'aprovado' && $alocacao['data_reserva'] >= $hoje) { 
         $t = trim($alocacao['turno']);
         if ($t === 'Matutino' || $t === 'Manhã') $proximas_matutino[] = $alocacao;
         elseif ($t === 'Vespertino' || $t === 'Tarde') $proximas_vespertino[] = $alocacao;
         elseif ($t === 'Noturno' || $t === 'Noite') $proximas_noturno[] = $alocacao;
     }
+}
+foreach ($minha_lista_espera as $leNotif) {
+    $notif_initial_ids[] = 'lista_espera:' . $leNotif['id'];
+    $qtd_pendentes++;
 }
 usort($proximas_matutino, function($a, $b) { return strtotime($a['data_reserva']) - strtotime($b['data_reserva']); });
 usort($proximas_vespertino, function($a, $b) { return strtotime($a['data_reserva']) - strtotime($b['data_reserva']); });
@@ -352,10 +418,10 @@ function renderizarCardAulaProfessor($aula, $hoje, $chaves_retiradas, $borda_cla
                     <hr class="my-3 opacity-25">
                     <?php if ($ja_retirou): ?>
                         <div class="apple-tag mb-2"><div class="apple-dot"></div> EM USO (Sua Aula)</div>
-                        <button type="button" class="apple-btn apple-btn-attention" data-bs-toggle="modal" data-bs-target="#modalSOS<?= $aula['id'] ?>"><i class="bi bi-headset me-2"></i> Pedir ajuda ao suporte</button>
                     <?php else: ?>
                         <button type="button" class="apple-btn apple-btn-success mb-2" data-bs-toggle="modal" data-bs-target="#modalChave<?= $aula['id'] ?>"><i class="bi bi-key-fill me-2"></i> Retirar Chave</button>
                     <?php endif; ?>
+                    <button type="button" class="apple-btn apple-btn-attention w-100" data-bs-toggle="modal" data-bs-target="#modalSOS<?= $aula['id'] ?>"><i class="bi bi-headset me-2"></i> Pedir ajuda ao suporte</button>
                 <?php endif; ?>
             </div>
         </div>
@@ -383,7 +449,7 @@ function renderizarCardAulaProfessor($aula, $hoje, $chaves_retiradas, $borda_cla
         </div>
     <?php endif; ?>
 
-    <?php if ($aula['data_reserva'] == $hoje && $ja_retirou): ?>
+    <?php if ($aula['data_reserva'] == $hoje): ?>
         <div class="modal fade" id="modalSOS<?= $aula['id'] ?>" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-sos-attention">
                 <div class="modal-header modal-header-sos-attention border-0"><h5 class="modal-title fw-bold"><i class="bi bi-headset me-2"></i> Pedir ajuda ao suporte</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
@@ -424,14 +490,19 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
 <head>
     <meta charset="UTF-8">
     <title>Portal Docente - UNICEPLAC</title>
+    <?php require __DIR__ . '/app/Views/partials/favicon.php'; ?>
+    <?php require __DIR__ . '/app/Views/partials/csrf-meta.php'; ?>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="css/labhub-theme.css">
+    <link rel="stylesheet" href="css/labhub-theme.css?v=20260619">
+    <link rel="stylesheet" href="css/labhub-layout.css">
+    <link rel="stylesheet" href="css/labhub-calendar.css?v=20260619">
     <link rel="stylesheet" href="css/notificacoes-nav.css">
     <link rel="stylesheet" href="css/labhub-alerts.css">
     
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales-all.global.min.js"></script>
+    <script src="js/labhub-calendar.js"></script>
 
     <script>
         const savedTheme = localStorage.getItem('tema-uniceplac') || 'light';
@@ -445,8 +516,8 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
         }
         body { background-color: #f4f6f8; transition: background-color 0.3s ease; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         .card, .card-header, .form-control, .form-select, .btn, .badge, .alert, .offcanvas, .modal-content { border-radius: 0 !important; }
-        .bg-uniceplac { background-color: var(--verde-uniceplac) !important; }
-        .text-uniceplac { color: var(--verde-uniceplac) !important; }
+        .bg-uniceplac { background-color: var(--lh-verde) !important; color: #fff !important; }
+        .text-uniceplac { color: var(--verde-uniceplac-text, var(--lh-verde-text)) !important; }
         
         .btn-uniceplac { background-color: var(--verde-uniceplac); color: white; border: none; font-weight: 500; }
         .btn-uniceplac:hover { background-color: var(--roxo-uniceplac); color: white; }
@@ -459,7 +530,7 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
         .header-icon { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin-right: 12px; background-color: rgba(0,0,0,0.05); }
 
         .offcanvas-menu-link { padding: 12px 20px; color: #495057; font-weight: 500; border-bottom: 1px solid #f1f1f1; display: block; text-decoration: none; transition: background-color 0.2s; cursor: pointer; }
-        .offcanvas-menu-link:hover, .offcanvas-menu-link.active-link { background-color: rgba(0, 115, 79, 0.05); color: var(--verde-uniceplac); border-right: 4px solid var(--verde-uniceplac); }
+        .offcanvas-menu-link:hover, .offcanvas-menu-link.active-link { background-color: rgba(0, 115, 79, 0.05); color: var(--verde-uniceplac-text, var(--lh-verde-text)); border-right: 4px solid var(--lh-verde); }
         .offcanvas-menu-link i { width: 25px; text-align: center; }
 
         .avatar-img-small { width: 40px; height: 40px; object-fit: cover; border-radius: 50% !important; border: 2px solid #dee2e6; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s; }
@@ -513,34 +584,40 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
         .badge-vespertino { background: rgba(253, 126, 20, 0.15); color: #e85e00; border: 1px solid rgba(253, 126, 20, 0.3); }
         .badge-noturno { background: rgba(66, 27, 113, 0.15); color: #421B71; border: 1px solid rgba(66, 27, 113, 0.3); }
         
-        /* CALENDÁRIO ESTILO APPLE */
-        #calendarioProfessor { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        .fc-theme-standard .fc-scrollgrid { border: 1px solid rgba(0,0,0,0.05); border-radius: 12px; overflow: hidden; }
-        .fc-theme-standard td, .fc-theme-standard th { border-color: rgba(0,0,0,0.05); }
-        .fc-col-header-cell { background-color: #fbfbfd; padding: 8px 0; font-weight: 600; color: #86868b; text-transform: uppercase; font-size: 0.8rem;}
-        .fc .fc-button-group > .fc-button { background: #f5f5f7 !important; color: #007aff !important; border-color: #d2d2d7 !important; text-transform: capitalize; box-shadow: none !important; font-weight: 500; transition: 0.2s; }
-        .fc .fc-button-group > .fc-button:hover { background: #e8e8ed !important; }
-        .fc .fc-button-group > .fc-button.fc-button-active { background: #007aff !important; color: #fff !important; border-color: #007aff !important; }
-        .fc .fc-today-button { background: #fff !important; color: #007aff !important; border-color: #d2d2d7 !important; font-weight: 600; text-transform: capitalize; }
-        .fc-toolbar-title { font-weight: 700 !important; color: #1d1d1f; text-transform: capitalize; }
-        
-        .apple-event-fixa { --fc-event-bg-color: rgba(66, 27, 113, 0.12); --fc-event-border-color: var(--roxo-uniceplac); --fc-event-text-color: var(--roxo-uniceplac); }
-        .apple-event-avulsa { --fc-event-bg-color: rgba(240, 115, 60, 0.12); --fc-event-border-color: var(--laranja-uniceplac); --fc-event-text-color: #c95b28; }
-        .apple-event-pendente { --fc-event-bg-color: rgba(255, 193, 7, 0.15); --fc-event-border-color: #e0a800; --fc-event-text-color: #856404; }
-        .apple-event-rejeitado { --fc-event-bg-color: rgba(108, 117, 125, 0.12); --fc-event-border-color: #6c757d; --fc-event-text-color: #495057; opacity: 0.65; }
-        /* --- ESTILO PARA OS FERIADOS --- */
-        .apple-event-feriado { 
-            --fc-event-bg-color: rgba(220, 53, 69, 0.12); 
-            --fc-event-border-color: #dc3545; 
-            --fc-event-text-color: #a71d2a; 
-        }
-
-        .fc-event { border-left-width: 4px !important; border-radius: 6px !important; border-top: none !important; border-right: none !important; border-bottom: none !important; padding: 4px !important; box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-bottom: 3px; cursor: pointer; }
-        .fc-daygrid-event { white-space: normal !important; align-items: start !important; }
-        .fc-daygrid-event .fc-event-main { white-space: normal !important; overflow: hidden; display: block; line-height: 1.2; }
-        .fc-v-event .fc-event-title-container { padding-bottom: 4px; }
-
         html { scroll-behavior: smooth; }
+
+        /* Histórico — preenche a tela sem cortar linhas */
+        #sessao-historico .card-historico {
+            min-height: calc(100vh - 10.5rem);
+            display: flex;
+            flex-direction: column;
+        }
+        #sessao-historico .card-historico .card-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        #sessao-historico #tabela-historico-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .lh-historico-table-wrap {
+            flex: 1;
+            max-height: none;
+            min-height: 12rem;
+            overflow-x: auto;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 1rem;
+        }
+        .lh-historico-table-wrap .table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
 
         /* DARK MODE */
         [data-bs-theme="dark"] body { background-color: #121212; color: #e0e0e0; }
@@ -553,6 +630,7 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
         [data-bs-theme="dark"] .border, [data-bs-theme="dark"] .border-bottom { border-color: #333 !important; }
         [data-bs-theme="dark"] .table { color: #e0e0e0; border-color: #444; }
         [data-bs-theme="dark"] .table-light th { background-color: #2a2a2a !important; color: #e0e0e0; border-color: #444; }
+        [data-bs-theme="dark"] #sessao-historico .card-historico .card-body { background-color: #1e1e1e !important; }
         [data-bs-theme="dark"] .offcanvas { background-color: #1e1e1e !important; }
         [data-bs-theme="dark"] .offcanvas-menu-link { color: #e0e0e0; border-bottom-color: #333; }
         [data-bs-theme="dark"] .offcanvas-menu-link:hover { background-color: rgba(255,255,255,0.05); }
@@ -560,19 +638,6 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
         [data-bs-theme="dark"] .form-control:focus, [data-bs-theme="dark"] .form-select:focus { background-color: #333; color: #fff; border-color: var(--verde-uniceplac); }
         [data-bs-theme="dark"] .modal-content { background-color: #1e1e1e; border-color: #444; border-radius: 20px !important; }
         [data-bs-theme="dark"] .top-icon-btn { color: #e0e0e0; }
-        
-        [data-bs-theme="dark"] .fc-toolbar-title { color: #fff; }
-        [data-bs-theme="dark"] .fc-col-header-cell { background-color: #1c1c1e; color: #98989d; border-color: #333;}
-        [data-bs-theme="dark"] .fc-theme-standard .fc-scrollgrid, [data-bs-theme="dark"] .fc-theme-standard td, [data-bs-theme="dark"] .fc-theme-standard th { border-color: #333; }
-        [data-bs-theme="dark"] .fc .fc-button-group > .fc-button { background: #1c1c1e !important; border-color: #333 !important; }
-        [data-bs-theme="dark"] .fc .fc-button-group > .fc-button.fc-button-active { background: #0a84ff !important; color: #fff !important; border-color: #0a84ff !important; }
-        [data-bs-theme="dark"] .fc .fc-today-button { background: #1c1c1e !important; color: #0a84ff !important; border-color: #333 !important; }
-        
-        [data-bs-theme="dark"] .apple-event-fixa { --fc-event-bg-color: rgba(66, 27, 113, 0.3); --fc-event-text-color: #dcb3ff; }
-        [data-bs-theme="dark"] .apple-event-avulsa { --fc-event-bg-color: rgba(240, 115, 60, 0.25); --fc-event-text-color: #ffb088; }
-        [data-bs-theme="dark"] .apple-event-pendente { --fc-event-bg-color: rgba(255, 193, 7, 0.2); --fc-event-text-color: #ffd966; }
-        [data-bs-theme="dark"] .apple-event-rejeitado { --fc-event-bg-color: rgba(108,117,125,0.2); --fc-event-text-color: #adb5bd; }
-        [data-bs-theme="dark"] .apple-event-feriado { --fc-event-bg-color: rgba(220, 53, 69, 0.25); --fc-event-text-color: #ff8a95; }
     </style>
 </head>
 <body>
@@ -583,10 +648,12 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
 
     <nav class="navbar navbar-light bg-white mb-4 border-bottom shadow-sm sticky-top">
         <div class="container-fluid px-3 px-md-4">
-            <span class="navbar-brand mb-0 h1 d-flex align-items-center">
-                <img src="uniceplac.png" id="navbarLogo" alt="Logo" style="height: 70px; margin-right: 12px; transition: 0.3s;">
+            <a href="#sessao-calendario" class="navbar-brand mb-0 h1 d-flex align-items-center text-decoration-none lh-navbar-home"
+                title="Início — Meu calendário"
+                onclick="event.preventDefault(); if(typeof fecharNotificacoesPopup==='function') fecharNotificacoesPopup(); bootstrap.Offcanvas.getInstance(document.getElementById('sidebarMenu'))?.hide(); showSection('sessao-calendario'); window.scrollTo({top:0,behavior:'smooth'});">
+                <img src="uniceplac.png" id="navbarLogo" alt="Logo UNICEPLAC — início" style="height: 70px; margin-right: 12px; transition: 0.3s;">
                 <span class="d-none d-md-inline fw-semibold text-uniceplac" style="font-size: 1.1rem;"></span>
-            </span>
+            </a>
             <div class="d-flex align-items-center">
                 <div class="me-4 top-icon-btn" id="themeToggleBtn" title="Alternar Tema"><i class="bi bi-moon-stars" id="themeIcon"></i></div>
                 <?php
@@ -622,6 +689,7 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
                     <span id="badge-menu-lateral" class="badge bg-warning text-dark ms-2 <?= $qtd_pendentes > 0 ? '' : 'd-none' ?>"><?= $qtd_pendentes ?> pendentes</span>
                 </a>
                 <a href="javascript:void(0);" onclick="showSection('sessao-solicitar')" data-bs-dismiss="offcanvas" class="offcanvas-menu-link"><i class="bi bi-calendar-plus text-success me-2"></i> Solicitar Laboratório</a>
+                <a href="javascript:void(0);" onclick="showSection('sessao-chamados-ti')" data-bs-dismiss="offcanvas" class="offcanvas-menu-link"><i class="bi bi-headset text-warning me-2"></i> Chamados ao TI</a>
                 
                 <div class="p-3 text-muted small fw-bold text-uppercase opacity-75 border-top mt-2">Grade Regular</div>
                 <a href="javascript:void(0);" onclick="showSection('sessao-ensalamento')" data-bs-dismiss="offcanvas" class="offcanvas-menu-link"><i class="bi bi-building text-primary me-2"></i> Meu Ensalamento Fixo</a>
@@ -637,14 +705,9 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
         <?= $mensagem ?>
 
         <div id="sessao-calendario" class="content-section">
-            <div class="card shadow-sm border-0 mb-4" style="border-top: 4px solid var(--azul-google);">
+            <div class="card shadow-sm border-0 mb-4 lh-cal-card">
                 <div class="card-header lh-card-header py-3">
                     <h5 class="mb-0 fw-bold lh-title-verde d-flex align-items-center"><i class="bi bi-calendar3 me-3 fs-4"></i> Meu Calendário Pessoal</h5>
-                    <p class="text-muted small mb-0 mt-2 lh-legenda-calendario">
-                        <span class="lh-badge lh-badge-fixa me-2">Aulas Fixas da Grade</span>
-                        <span class="lh-badge lh-badge-avulsa me-2">Reservas Avulsas Aprovadas</span>
-                        <span class="lh-badge lh-badge-feriado">Feriados Nacionais</span>
-                    </p>
                 </div>
                 <div class="card-body lh-card-body p-3 p-md-4">
                     <?php if (!$id_quadro_ativo && count($eventos_calendario) === 0): ?>
@@ -659,14 +722,10 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
                             <strong>Grade fixa não disponível:</strong> A coordenação ainda não criou um Quadro de Horários. Exibindo apenas suas reservas avulsas.
                         </div>
                     <?php endif; ?>
-                    <p class="text-muted small mb-3 lh-legenda-calendario">
-                        <span class="lh-badge lh-badge-fixa me-2">Aulas Fixas da Grade</span>
-                        <span class="lh-badge lh-badge-avulsa me-2">Reservas Aprovadas</span>
-                        <span class="lh-badge lh-badge-pendente me-2">⏳ Aguardando Aprovação</span>
-                        <span class="lh-badge lh-badge-rejeitada me-2">✗ Rejeitadas</span>
-                        <span class="lh-badge lh-badge-feriado">Feriados Nacionais</span>
-                    </p>
-                    <div id="calendarioProfessor"></div>
+                    <?php $calendario_modo = 'professor'; require __DIR__ . '/app/Views/partials/calendario-legenda.php'; ?>
+                    <div class="lh-calendar-wrap">
+                        <div id="calendarioProfessor"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -752,17 +811,26 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
                 <div class="card-body bg-light p-4">
                     <div class="row justify-content-center">
                         <div class="col-lg-10">
-                            <form action="painel_professor.php" method="POST" class="bg-white p-4 p-md-5 border shadow-sm" style="border-radius: 20px;">
+                            <form action="painel_professor.php" method="POST" id="form-solicitar-lab" class="bg-white p-4 p-md-5 border shadow-sm" style="border-radius: 20px;">
                                 <div class="row mb-4">
-                                    <div class="col-md-4 mb-3 mb-md-0"><label class="form-label fw-bold text-secondary">Data:</label><input type="date" class="form-control form-control-lg" name="data_reserva" min="<?= date('Y-m-d') ?>" required></div>
-                                    <div class="col-md-4 mb-3 mb-md-0"><label class="form-label fw-bold text-secondary">Turno:</label><select class="form-select form-select-lg" name="turno" required><option value="">Selecione...</option><option>Matutino</option><option>Vespertino</option><option>Noturno</option></select></div>
-                                    <div class="col-md-4"><label class="form-label fw-bold text-secondary">Horário:</label><select class="form-select form-select-lg" name="periodo" required><option>1º e 2º Horários</option><option>1º Horário</option><option>2º Horário</option></select></div>
+                                    <div class="col-md-4 mb-3 mb-md-0"><label class="form-label fw-bold text-secondary">Data:</label><input type="date" class="form-control form-control-lg" id="solicitar-data" name="data_reserva" min="<?= date('Y-m-d') ?>" required></div>
+                                    <div class="col-md-4 mb-3 mb-md-0"><label class="form-label fw-bold text-secondary">Turno:</label><select class="form-select form-select-lg" id="solicitar-turno" name="turno" required><option value="">Selecione...</option><option>Matutino</option><option>Vespertino</option><option>Noturno</option></select></div>
+                                    <div class="col-md-4"><label class="form-label fw-bold text-secondary">Horário:</label><select class="form-select form-select-lg" id="solicitar-periodo" name="periodo" required><option>1º e 2º Horários</option><option>1º Horário</option><option>2º Horário</option></select></div>
                                 </div>
                                 <div class="row mb-5">
-                                    <div class="col-md-6 mb-3 mb-md-0"><label class="form-label fw-bold text-secondary">Laboratório:</label><select class="form-select form-select-lg" name="id_laboratorio" required data-lh-combobox><option value="">Busque o laboratório...</option><?php foreach($laboratorios as $lab): ?><option value="<?= $lab['id'] ?>"><?= htmlspecialchars($lab['nome']) ?> (Cap: <?= $lab['capacidade'] ?>)</option><?php endforeach; ?></select></div>
+                                    <div class="col-md-6 mb-3 mb-md-0">
+                                        <label class="form-label fw-bold text-secondary">Laboratório:</label>
+                                        <select class="form-select form-select-lg" id="solicitar-lab" name="id_laboratorio" data-lh-combobox data-lh-placeholder="Busque o laboratório..." disabled>
+                                            <option value="">Preencha data, turno e horário acima</option>
+                                        </select>
+                                        <div id="solicitar-lab-status" class="form-text mt-2 text-muted">Selecione data, turno e horário para ver os laboratórios livres.</div>
+                                    </div>
                                     <div class="col-md-6"><label class="form-label fw-bold text-secondary">Disciplina:</label><select class="form-select form-select-lg" name="id_disciplina" required data-lh-combobox><option value="">Busque a disciplina...</option><?php foreach($disciplinas as $disc): ?><option value="<?= $disc['id'] ?>"><?= htmlspecialchars($disc['nome']) ?></option><?php endforeach; ?></select></div>
                                 </div>
-                                <div class="d-flex justify-content-end"><button type="submit" class="btn btn-uniceplac btn-lg px-5 w-100 w-md-auto rounded-pill"><i class="bi bi-send-check me-2"></i>Enviar Solicitação</button></div>
+                                <div class="d-flex flex-column flex-md-row justify-content-end gap-2">
+                                    <button type="submit" id="btn-solicitar-reserva" class="btn btn-uniceplac btn-lg px-5 w-100 w-md-auto rounded-pill" disabled><i class="bi bi-send-check me-2"></i>Enviar Solicitação</button>
+                                    <button type="submit" id="btn-lista-espera" name="acao_lista_espera" value="1" class="btn btn-outline-warning btn-lg px-4 w-100 w-md-auto rounded-pill d-none"><i class="bi bi-hourglass-bottom me-2"></i>Entrar na lista de espera</button>
+                                </div>
                             </form>
                         </div>
                     </div>
@@ -771,17 +839,26 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
         </div>
 
         <div id="sessao-historico" class="content-section">
-            <div class="card shadow-sm border-0 mb-5" style="border-top: 4px solid var(--roxo-uniceplac) !important;">
+            <div class="card shadow-sm border-0 mb-5 card-historico" style="border-top: 4px solid var(--roxo-uniceplac) !important;">
                 <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 fw-bold d-flex align-items-center" style="color: var(--roxo-uniceplac);"><span class="header-icon bg-light" style="color: var(--roxo-uniceplac);"><i class="bi bi-clock-history fs-4"></i></span>Histórico de Solicitações</h5>
                 </div>
                 <div class="card-body p-0">
                     <div id="tabela-historico-container">
-                        <?php if (count($minhas_alocacoes) > 0): ?>
-                            <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                        <?php if (count($minhas_alocacoes) > 0 || count($minha_lista_espera) > 0): ?>
+                            <div class="table-responsive lh-historico-table-wrap">
                                 <table class="table table-hover align-middle mb-0">
-                                    <thead class="table-light sticky-top"><tr><th class="ps-4 py-3">Data</th><th>Turno/Horário</th><th>Laboratório</th><th>Disciplina</th><th class="pe-4">Status</th></tr></thead>
+                                    <thead class="table-light"><tr><th class="ps-4 py-3">Data</th><th>Turno/Horário</th><th>Laboratório</th><th>Disciplina</th><th class="pe-4">Status</th></tr></thead>
                                     <tbody>
+                                        <?php foreach ($minha_lista_espera as $le): ?>
+                                            <tr data-lista-espera-id="<?= (int) $le['id'] ?>">
+                                                <td class="ps-4"><strong><?= date('d/m/Y', strtotime($le['data_reserva'])) ?></strong></td>
+                                                <td><?= htmlspecialchars($le['turno']) ?> <br><small class="text-muted"><?= htmlspecialchars($le['periodo']) ?></small></td>
+                                                <td class="fw-bold text-muted"><i class="bi bi-hourglass-bottom me-1"></i> Aguardando vaga</td>
+                                                <td><?= htmlspecialchars($le['disciplina']) ?></td>
+                                                <td class="pe-4"><span class="badge bg-info rounded-pill px-3"><i class="bi bi-list-ol me-1"></i>Lista de espera (<?= (int) $le['posicao'] ?>º)</span></td>
+                                            </tr>
+                                        <?php endforeach; ?>
                                         <?php foreach ($minhas_alocacoes as $linha): ?>
                                             <tr data-reserva-id="<?= (int) $linha['id'] ?>">
                                                 <td class="ps-4"><strong><?= date('d/m/Y', strtotime($linha['data_reserva'])) ?></strong></td>
@@ -808,6 +885,99 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
             </div>
         </div>
 
+        <div id="sessao-chamados-ti" class="content-section">
+            <div class="card shadow-sm border-0 mb-4 card-sos-attention">
+                <div class="card-body p-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                    <div>
+                        <h5 class="fw-bold mb-1"><i class="bi bi-headset me-2"></i> Precisa de ajuda no laboratório?</h5>
+                        <p class="text-muted small mb-0">Abra um chamado para a equipe de TI — projetor, rede, ar-condicionado, chaves, etc.</p>
+                    </div>
+                    <button type="button" class="btn btn-attention btn-lg rounded-pill px-4 fw-bold" data-bs-toggle="modal" data-bs-target="#modalNovoChamadoTI">
+                        <i class="bi bi-plus-circle me-2"></i> Novo chamado ao TI
+                    </button>
+                </div>
+            </div>
+            <div class="card shadow-sm border-0 mb-5 card-sos-attention">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 fw-bold d-flex align-items-center"><i class="bi bi-headset me-3 fs-4"></i> Meus chamados ao Suporte TI</h5>
+                    <p class="text-muted small mb-0 mt-2">Acompanhe status e leia as respostas da equipe de TI. Você também recebe atualizações por e-mail quando o suporte responder.</p>
+                </div>
+                <div class="card-body p-0">
+                    <?php if (count($meus_chamados_ti) > 0): ?>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th class="ps-4 py-3">Aberto em</th>
+                                        <th>Laboratório</th>
+                                        <th>Problema</th>
+                                        <th>Status</th>
+                                        <th class="pe-4">Resposta do TI</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($meus_chamados_ti as $ch): ?>
+                                        <tr>
+                                            <td class="ps-4"><strong><?= date('d/m/Y H:i', strtotime($ch['data_hora'])) ?></strong></td>
+                                            <td class="fw-bold"><?= htmlspecialchars($ch['laboratorio']) ?></td>
+                                            <td class="small text-muted"><?= nl2br(htmlspecialchars($ch['mensagem'])) ?></td>
+                                            <td><?= sos_render_badge($ch['status'] ?? 'pendente') ?></td>
+                                            <td class="pe-4 small">
+                                                <?php if (!empty($ch['resposta_professor'])): ?>
+                                                    <div class="p-2 bg-light rounded border-start border-3 border-primary"><?= nl2br(htmlspecialchars($ch['resposta_professor'])) ?></div>
+                                                    <?php if (!empty($ch['ultimo_email_em'])): ?>
+                                                        <span class="text-muted d-block mt-1"><i class="bi bi-envelope-check me-1"></i>E-mail em <?= date('d/m H:i', strtotime($ch['ultimo_email_em'])) ?></span>
+                                                    <?php endif; ?>
+                                                <?php else: ?>
+                                                    <span class="text-muted">Aguardando retorno do suporte...</span>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php else: ?>
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-headset fs-1 opacity-50 d-block mb-2"></i>
+                            Nenhum chamado aberto ainda. Clique em <strong>Novo chamado ao TI</strong> acima ou use o botão nas aulas de hoje.
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="modal fade" id="modalNovoChamadoTI" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content modal-sos-attention">
+                        <div class="modal-header modal-header-sos-attention border-0">
+                            <h5 class="modal-title fw-bold"><i class="bi bi-headset me-2"></i> Novo chamado ao TI</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-start p-4">
+                            <form method="POST" action="painel_professor.php">
+                                <input type="hidden" name="acao_sos" value="1">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Laboratório / local:</label>
+                                    <select class="form-select form-select-lg" name="laboratorio_sos" required>
+                                        <option value="">Selecione o laboratório...</option>
+                                        <?php foreach ($laboratorios as $lab): ?>
+                                            <option value="<?= htmlspecialchars($lab['nome']) ?>"><?= htmlspecialchars($lab['nome']) ?></option>
+                                        <?php endforeach; ?>
+                                        <option value="Outro / não listado">Outro / não listado</option>
+                                    </select>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold">Descreva o problema:</label>
+                                    <textarea class="form-control" style="border-radius: 15px;" name="mensagem_sos" rows="4" placeholder="Ex.: projetor não liga, computador sem internet, ar-condicionado..." required></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-attention w-100 fw-bold py-2 rounded-pill"><i class="bi bi-send me-1"></i> Enviar chamado</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="sessao-perfil" class="content-section">
             <div class="card shadow-sm border-0 mb-4" style="border-top: 4px solid var(--roxo-uniceplac) !important;">
                 <div class="card-header bg-white py-3">
@@ -829,7 +999,7 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
                                 <h6 class="fw-bold text-secondary text-uppercase small mb-3">Informações da Conta</h6>
                                 <p class="mb-2"><i class="bi bi-person-fill me-2 text-primary"></i><strong>Nome:</strong> <?= htmlspecialchars($_SESSION['nome']) ?></p>
                                 <p class="mb-2"><i class="bi bi-envelope-fill me-2 text-primary"></i><strong>E-mail:</strong> <?= htmlspecialchars($_SESSION['email'] ?? 'Não informado') ?></p>
-                                <p class="mb-0"><i class="bi bi-shield-fill me-2 text-success"></i><strong>Perfil:</strong> <span class="badge bg-uniceplac text-uppercase"><?= htmlspecialchars($_SESSION['perfil']) ?></span></p>
+                                <p class="mb-0"><i class="bi bi-shield-fill me-2 text-primary"></i><strong>Perfil:</strong> <span class="badge lh-badge lh-badge-professor text-uppercase"><?= htmlspecialchars($_SESSION['perfil']) ?></span></p>
                             </div>
                             <div class="alert alert-info border-0 border-start border-4 border-info rounded-0" style="font-size:0.85rem;">
                                 <i class="bi bi-info-circle me-2"></i>
@@ -844,7 +1014,7 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/notificacoes-nav.js"></script>
+    <script src="js/notificacoes-nav.js?v=20260619b"></script>
 
     <script>
         let calendarioProfessorGlobal;
@@ -893,7 +1063,11 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
             setTimeout(function () {
                 let row = null;
                 if (item && item.id) {
-                    row = document.querySelector('#sessao-historico tr[data-reserva-id="' + item.id + '"]');
+                    if (item.tipo === 'lista_espera') {
+                        row = document.querySelector('#sessao-historico tr[data-lista-espera-id="' + item.id + '"]');
+                    } else {
+                        row = document.querySelector('#sessao-historico tr[data-reserva-id="' + item.id + '"]');
+                    }
                 }
                 if (!row) {
                     const badge = document.querySelector('#sessao-historico tr .badge.bg-warning');
@@ -911,52 +1085,21 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
 
         function inicializarCalendarioProfessor() {
             var calendarEl = document.getElementById('calendarioProfessor');
-            if (!calendarEl || calendarioProfessorGlobal) return;
-            calendarioProfessorGlobal = new FullCalendar.Calendar(calendarEl, {
-                locale: 'pt-br',
-                initialView: window.innerWidth < 768 ? 'listWeek' : 'dayGridMonth',
-                navLinks: true,
-                nowIndicator: true,
-                dayMaxEvents: 3,
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
-                },
-                buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana', day: 'Dia', list: 'Lista' },
+            if (!calendarEl || calendarioProfessorGlobal || typeof initLabhubCalendar !== 'function') return;
+            calendarioProfessorGlobal = initLabhubCalendar(calendarEl, {
                 events: <?= $eventos_json ?>,
-                slotMinTime: '08:00:00',
-                slotMaxTime: '23:30:00',
-                allDaySlot: false,
-                expandRows: true,
-                eventContent: function(arg) {
-                    let content = document.createElement('div');
-                    let timeStr = arg.timeText ? `<div style="font-size:0.7rem;font-weight:bold;opacity:0.75;margin-bottom:2px;">${arg.timeText}</div>` : '';
-                    let titleEl = document.createElement('div');
-                    titleEl.innerHTML = timeStr + '<div style="font-size:0.8rem;font-weight:700;line-height:1.1;">' + arg.event.title + '</div>';
-                    content.appendChild(titleEl);
-                    if (arg.view.type !== 'dayGridMonth') {
-                        let localEl = document.createElement('div');
-                        localEl.innerHTML = arg.event.extendedProps.local || '';
-                        localEl.style.cssText = 'font-size:0.75rem;margin-top:4px;line-height:1.2;';
-                        content.appendChild(localEl);
-                    }
-                    return { domNodes: [content] };
-                }
+                mapaDatas: <?= $feriados_datas_json ?? '{}' ?>,
+                comModalDetalhe: true
             });
-            calendarioProfessorGlobal.render();
         }
-
-        let qtdPendentesAnterior = <?= $qtd_pendentes ?>;
-        const somNotificacao = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); 
 
         document.addEventListener("DOMContentLoaded", function() {
             autoOcultarMensagens();
             updateThemeElements(savedTheme);
 
-            let hashURL = window.location.hash.replace('#', '');
+            let hashURL = new URLSearchParams(window.location.search).get('aba') || window.location.hash.replace('#', '');
             let phpAbaAtiva = "<?= $aba_ativa ?>"; 
-            let abaInicial = hashURL ? hashURL : phpAbaAtiva;
+            let abaInicial = hashURL || phpAbaAtiva;
             if(document.getElementById(abaInicial)) showSection(abaInicial);
             else showSection('sessao-calendario');
 
@@ -964,6 +1107,8 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
                 verTodasFn: 'abrirHistoricoSolicitacoes',
                 badgeIds: ['badge-menu-lateral'],
                 playSound: true,
+                somVolume: 0.05,
+                initialIds: <?= json_encode($notif_initial_ids, JSON_UNESCAPED_UNICODE) ?>,
                 pollInterval: 120000
             });
 
@@ -1003,10 +1148,11 @@ function renderizarCardEnsalamento($e, $badge_cor, $borda_classe) {
     <?php
     $labhub_catalog = [
         'disciplinas'  => array_map(static fn($d) => ['id' => $d['id'], 'nome' => $d['nome']], $disciplinas ?? []),
-        'laboratorios' => array_map(static fn($l) => ['id' => $l['id'], 'nome' => $l['nome'] . ' (Cap: ' . ($l['capacidade'] ?? 0) . ')'], $laboratorios ?? []),
     ];
     $labhub_can_create = false;
     require __DIR__ . '/app/Views/partials/labhub-combobox-setup.php';
+    echo '<script src="js/labhub-solicitar-lab.js?v=2026061822"></script>';
+    require __DIR__ . '/app/Views/partials/modal-detalhe-evento.php';
     ?>
 </body>
 </html>

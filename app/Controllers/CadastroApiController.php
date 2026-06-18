@@ -34,6 +34,10 @@ class CadastroApiController extends BaseController {
     }
 
     private function listar(): void {
+        if (($_SESSION['perfil'] ?? '') !== 'coordenador') {
+            $this->json(['ok' => false, 'error' => 'Sem permissão'], 403);
+        }
+
         $tipo = trim((string) ($_GET['tipo'] ?? ''));
         $q    = trim((string) ($_GET['q'] ?? ''));
 

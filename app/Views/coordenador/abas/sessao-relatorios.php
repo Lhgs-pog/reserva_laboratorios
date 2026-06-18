@@ -6,12 +6,12 @@ if (!function_exists('renderCellProf')) {
             return '<td class="text-muted opacity-25">-</td>';
         }
         $s = $t - $l;
-        $html = '<td><div class="fw-bold text-dark">' . $t . 'h</div><div style="font-size:0.75rem; line-height:1; margin-top:2px;">';
+        $html = '<td><div class="fw-bold">' . $t . 'h</div><div style="font-size:0.75rem; line-height:1; margin-top:2px;">';
         if ($l > 0) {
-            $html .= '<span class="text-danger">' . $l . 'L</span> ';
+            $html .= '<span class="lh-text-lab">' . $l . 'L</span> ';
         }
         if ($s > 0) {
-            $html .= '<span class="text-success">' . $s . 'S</span>';
+            $html .= '<span class="lh-text-sala">' . $s . 'S</span>';
         }
         $html .= '</div></td>';
         return $html;
@@ -28,7 +28,7 @@ if (!function_exists('renderCellProf')) {
                     <div class="d-flex flex-wrap align-items-center gap-3">
                         <span class="badge bg-uniceplac px-3 py-2"><i class="bi bi-table me-1"></i> Quadro: <?= htmlspecialchars($nome_quadro_selecionado ?: 'Grade ativa') ?></span>
                         <span class="badge bg-primary px-3 py-2"><i class="bi bi-journal-bookmark me-1"></i> <?= (int) $total_aulas_grade ?> aulas na grade</span>
-                        <span class="badge bg-info text-dark px-3 py-2"><i class="bi bi-calendar-plus me-1"></i> <?= (int) $total_reservas_avulsas ?> reservas avulsas (<?= (int) $total_reservas_avulsas_horas ?>h em labs)</span>
+                        <span class="badge lh-badge-info px-3 py-2"><i class="bi bi-calendar-plus me-1"></i> <?= (int) $total_reservas_avulsas ?> reservas avulsas (<?= (int) $total_reservas_avulsas_horas ?>h em labs)</span>
                         <a href="javascript:void(0);" onclick="showSection('sessao-quadro-horario')" class="btn btn-sm btn-outline-success ms-auto">
                             <i class="bi bi-pencil-square me-1"></i> Editar grade / vincular labs
                         </a>
@@ -70,9 +70,9 @@ if (!function_exists('renderCellProf')) {
                             style="border-left: 4px solid var(--laranja-uniceplac);">
                             <div class="card-body p-3">
                                 <h6 class="text-muted text-uppercase fw-bold small mb-1">Ociosidade Global (Labs)</h6>
-                                <h2 class="fw-bold text-danger mb-2"><?= $taxa_ociosidade_global ?>%</h2>
+                                <h2 class="fw-bold lh-text-danger mb-2"><?= $taxa_ociosidade_global ?>%</h2>
                                 <div class="progress" style="height: 5px;">
-                                    <div class="progress-bar bg-danger" style="width: <?= $taxa_ociosidade_global ?>%;">
+                                    <div class="progress-bar lh-bg-danger" style="width: <?= $taxa_ociosidade_global ?>%;">
                                     </div>
                                 </div>
                             </div>
@@ -86,7 +86,7 @@ if (!function_exists('renderCellProf')) {
                                     title="<?= htmlspecialchars($lab_mais_ocioso['nome']) ?>">
                                     <?= htmlspecialchars($lab_mais_ocioso['nome']) ?>
                                 </h4>
-                                <small class="text-danger fw-bold"><?= $lab_mais_ocioso['horas'] ?>h Livres na
+                                <small class="lh-text-danger fw-bold"><?= $lab_mais_ocioso['horas'] ?>h Livres na
                                     semana</small>
                             </div>
                         </div>
@@ -120,8 +120,8 @@ if (!function_exists('renderCellProf')) {
                 <div class="row g-4 mb-4">
                     <div class="col-md-6">
                         <div class="card shadow-sm border-0 h-100" style="border-radius: 12px;">
-                            <div class="card-header bg-white border-0 pt-4 pb-0 text-center">
-                                <h6 class="fw-bold text-dark mb-0">Perfil de Ensino (Top 10 Professores)</h6>
+                            <div class="card-header lh-card-header border-0 pt-4 pb-0 text-center">
+                                <h6 class="fw-bold mb-0">Perfil de Ensino (Top 10 Professores)</h6>
                                 <small class="text-muted">Horas em Sala (Verde) vs Horas no Lab (Vermelho)</small>
                             </div>
                             <div class="card-body" style="position: relative; height: 300px;">
@@ -131,8 +131,8 @@ if (!function_exists('renderCellProf')) {
                     </div>
                     <div class="col-md-6">
                         <div class="card shadow-sm border-0 h-100" style="border-radius: 12px;">
-                            <div class="card-header bg-white border-0 pt-4 pb-0 text-center">
-                                <h6 class="fw-bold text-dark mb-0">Demanda de Infraestrutura por Curso</h6>
+                            <div class="card-header lh-card-header border-0 pt-4 pb-0 text-center">
+                                <h6 class="fw-bold mb-0">Demanda de Infraestrutura por Curso</h6>
                                 <small class="text-muted">Volume total de horas consumidas na grade</small>
                             </div>
                             <div class="card-body"
@@ -160,11 +160,11 @@ if (!function_exists('renderCellProf')) {
                                             <?= htmlspecialchars($rl['laboratorio']) ?>
                                         </h6>
                                         <div class="d-flex justify-content-between small mb-2">
-                                            <span class="text-danger fw-bold">Uso: <?= $rl['total'] ?>h</span>
+                                            <span class="lh-text-danger fw-bold">Uso: <?= $rl['total'] ?>h</span>
                                             <span class="text-success fw-bold">Livre: <?= $ocioso ?>h</span>
                                         </div>
                                         <div class="progress bg-success bg-opacity-25" style="height: 6px;">
-                                            <div class="progress-bar bg-danger" style="width: <?= $pct ?>%;"></div>
+                                            <div class="progress-bar lh-bg-danger" style="width: <?= $pct ?>%;"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -193,8 +193,8 @@ if (!function_exists('renderCellProf')) {
                                             <th>Localização</th>
                                             <th>Dia / Turno</th>
                                             <th>Carga Total</th>
-                                            <th class="text-danger">Horas Lab</th>
-                                            <th class="text-success">Horas Sala</th>
+                                            <th class="lh-text-danger">Horas Lab</th>
+                                            <th class="lh-text-sala">Horas Sala</th>
                                             <th class="pe-4 text-start">Alerta / Status</th>
                                         </tr>
                                     </thead>
@@ -222,15 +222,15 @@ if (!function_exists('renderCellProf')) {
                                                     <td data-search="<?= strtolower($aula['lab_nome'] ?? '') ?>">
                                                         <?php if ($aula['lab_nome']): ?><span class="text-primary fw-bold"><i
                                                                     class="bi bi-pc-display me-1"></i><?= htmlspecialchars($aula['lab_nome']) ?></span>
-                                                        <?php else: ?><span class="text-success"><i
+                                                        <?php else: ?><span class="lh-text-sala"><i
                                                                     class="bi bi-door-open me-1"></i>Sala
                                                                 <?= htmlspecialchars($aula['sala'] ?? '-') ?></span><?php endif; ?>
                                                     </td>
                                                     <td><?= $aula['dia_semana'] ?> <br> <small
                                                             class="text-muted"><?= $aula['turno'] ?></small></td>
                                                     <td class="fw-bold"><?= $ch_t ?>h</td>
-                                                    <td class="text-danger fw-bold"><?= $ch_l > 0 ? $ch_l . 'h' : '-' ?></td>
-                                                    <td class="text-success fw-bold"><?= $ch_s > 0 ? $ch_s . 'h' : '-' ?></td>
+                                                    <td class="lh-text-danger fw-bold"><?= $ch_l > 0 ? $ch_l . 'h' : '-' ?></td>
+                                                    <td class="lh-text-sala fw-bold"><?= $ch_s > 0 ? $ch_s . 'h' : '-' ?></td>
                                                     <td class="pe-4 text-start"><?= $badge ?></td>
                                                 </tr>
                                             <?php endforeach; ?>
@@ -289,8 +289,8 @@ if (!function_exists('renderCellProf')) {
                                                     <td class="pe-4 bg-light fw-bold fs-5 text-primary border-start">
                                                         <?= $rp['total'] ?>h<br>
                                                         <small class="fs-6 fw-normal"><span
-                                                                class="text-danger"><?= $rp['total_l'] ?>L</span> | <span
-                                                                class="text-success"><?= $rp['total'] - $rp['total_l'] ?>S</span></small>
+                                                                class="lh-text-lab"><?= $rp['total_l'] ?>L</span> | <span
+                                                                class="lh-text-sala"><?= $rp['total'] - $rp['total_l'] ?>S</span></small>
                                                     </td>
                                                 </tr>
                                             <?php endforeach; ?>

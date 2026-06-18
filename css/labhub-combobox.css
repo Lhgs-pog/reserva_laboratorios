@@ -30,7 +30,9 @@
     right: 0;
     z-index: 1060;
     max-height: 240px;
+    max-width: calc(100vw - 16px);
     overflow-y: auto;
+    overflow-x: hidden;
     background: #fff;
     border: 1px solid rgba(0, 0, 0, 0.12);
     border-radius: 8px;

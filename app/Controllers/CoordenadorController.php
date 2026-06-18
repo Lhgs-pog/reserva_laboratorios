@@ -8,6 +8,9 @@ use App\Services\UsuarioService;
 use PDO;
 use PDOException;
 
+require_once __DIR__ . '/../Config/feriados_helpers.php';
+require_once __DIR__ . '/../Config/calendario_helpers.php';
+
 class CoordenadorController extends BaseController {
     public function index() {
         // Pegar a instância PDO global (usada no código legado)
@@ -28,10 +31,6 @@ class CoordenadorController extends BaseController {
         }
 
         // === LÓGICA LEGADA EXTRAÍDA ===
-if (!isset($_SESSION['usuario_id']) || $_SESSION['perfil'] !== 'coordenador') {
-    header("Location: index.php");
-    exit;
-}
 // =================================================================================
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'mover_aula') {
     header('Content-Type: application/json');
@@ -44,7 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
         $stmt->execute([$novo_dia, $id_aula]);
         echo json_encode(['success' => true]);
     } catch (PDOException $e) {
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        error_log('[CoordenadorController] mover_aula: ' . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => 'Não foi possível salvar a posição.']);
     }
     exit; // Para a execução do PHP aqui para não imprimir o HTML inteiro no fundo
 }
@@ -101,7 +101,79 @@ function verificaChoqueHorario($pdo, $id_lab, $data_reserva, $turno, $periodo, $
     return false;
 }
 
-// --- UPLOAD DE FOTO ---
+function labsParaRealocacao($pdo, $id_agendamento)
+{
+    $stmt = $pdo->prepare(
+        "SELECT a.*, l.nome AS lab_nome
+         FROM agendamentos a
+         JOIN laboratorios l ON a.id_laboratorio = l.id
+         WHERE a.id = ?"
+    );
+    $stmt->execute([$id_agendamento]);
+    $ag = $stmt->fetch(PDO::FETCH_ASSOC);
+    $status = $ag['status'] ?? '';
+    if (!$ag || !in_array($status, ['aprovado', 'pendente'], true)) {
+        return null;
+    }
+
+    $labs = $pdo->query("SELECT id, nome, capacidade FROM laboratorios ORDER BY nome ASC")->fetchAll(PDO::FETCH_ASSOC);
+    $lista = [];
+    foreach ($labs as $lab) {
+        $idLab = (int) $lab['id'];
+        if ($idLab === (int) $ag['id_laboratorio']) {
+            $lista[] = [
+                'id' => $idLab,
+                'nome' => $lab['nome'],
+                'capacidade' => (int) $lab['capacidade'],
+                'status' => 'atual',
+                'motivo' => 'Laboratório atual desta reserva.',
+            ];
+            continue;
+        }
+        $conflito = verificaChoqueHorario(
+            $pdo,
+            $idLab,
+            $ag['data_reserva'],
+            $ag['turno'],
+            $ag['periodo'],
+            $id_agendamento,
+            false
+        );
+        $lista[] = [
+            'id' => $idLab,
+            'nome' => $lab['nome'],
+            'capacidade' => (int) $lab['capacidade'],
+            'status' => $conflito ? 'ocupado' : 'livre',
+            'motivo' => $conflito ?: '',
+        ];
+    }
+
+    return [
+        'reserva' => [
+            'id' => (int) $ag['id'],
+            'id_laboratorio' => (int) $ag['id_laboratorio'],
+            'laboratorio' => $ag['lab_nome'],
+            'data_reserva' => $ag['data_reserva'],
+            'data_formatada' => date('d/m/Y', strtotime($ag['data_reserva'])),
+            'turno' => $ag['turno'],
+            'periodo' => $ag['periodo'],
+        ],
+        'labs' => $lista,
+    ];
+}
+
+// --- AJAX: laboratórios disponíveis para realocação ---
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'labs_realocacao') {
+    header('Content-Type: application/json; charset=utf-8');
+    $payload = labsParaRealocacao($pdo, (int) ($_GET['id_agendamento'] ?? 0));
+    if (!$payload) {
+        echo json_encode(['ok' => false, 'error' => 'Reserva não encontrada ou não pode ser realocada (somente pendentes ou aprovadas).']);
+    } else {
+        echo json_encode(['ok' => true] + $payload);
+    }
+    exit;
+}
+
 if (isset($_FILES['nova_foto']) && $_FILES['nova_foto']['error'] === UPLOAD_ERR_OK) {
     $extensao = strtolower(pathinfo($_FILES['nova_foto']['name'], PATHINFO_EXTENSION));
     if (in_array($extensao, ['jpg', 'jpeg', 'png', 'webp'])) {
@@ -152,11 +224,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $avisosEmail = [];
+            $tokenVerificacaoGerado = false;
             $deveEnviarConfirmacao = $enviarConfirmacao || (!$emailVerificado && $mailSvc->isConfigured());
             if ($deveEnviarConfirmacao && $mailSvc->isConfigured()) {
                 $token = $usuarioSvc->gerarTokenVerificacao($id);
+                $tokenVerificacaoGerado = true;
                 if ($mailSvc->enviarVerificacaoEmail($user['email'], $user['nome'], $token)) {
-                    $avisosEmail[] = 'E-mail de confirmação enviado para <strong>' . htmlspecialchars($user['email']) . '</strong>.';
+                    $avisosEmail[] = 'E-mail de confirmação enviado para <strong>' . htmlspecialchars($user['email']) . '</strong>. O usuário deve confirmar antes de entrar.';
                 } else {
                     $detail = $mailSvc->lastError() ?: 'erro desconhecido';
                     $avisosEmail[] = 'Usuário criado, mas o e-mail <strong>não</strong> foi enviado: ' . htmlspecialchars($detail) . '. Use «Reenviar» na lista.';
@@ -167,11 +241,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($senha !== '' && isset($_POST['enviar_senha_email']) && $mailSvc->isConfigured()) {
                 if ($mailSvc->enviarSenhaTemporaria($user['email'], $user['nome'], $senha)) {
-                    $avisosEmail[] = 'Senha enviada por e-mail.';
+                    $avisosEmail[] = 'Senha enviada por e-mail (use após confirmar o e-mail, se aplicável).';
                 } else {
                     $avisosEmail[] = 'Senha <strong>não</strong> enviada por e-mail.';
                 }
-            } elseif ($senha === '' && $enviarLinkSenha && $mailSvc->isConfigured()) {
+            } elseif ($senha === '' && $enviarLinkSenha && !$tokenVerificacaoGerado && $mailSvc->isConfigured()) {
                 $token = $usuarioSvc->gerarTokenRedefinicao($id);
                 if ($mailSvc->enviarRedefinicaoSenha($user['email'], $user['nome'], $token)) {
                     $avisosEmail[] = 'Link para criar senha enviado por e-mail.';
@@ -248,7 +322,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $flashUsuarios = '<div class="alert alert-success alert-autohide mb-4"><i class="bi bi-envelope-check me-2"></i>E-mail de confirmação enviado. Peça ao usuário verificar <strong>Spam/Promoções</strong> se não aparecer em 2 min.</div>';
         }
     } catch (\Throwable $e) {
-        $flashUsuarios = '<div class="alert alert-danger alert-autohide mb-4"><i class="bi bi-exclamation-triangle me-2"></i>' . htmlspecialchars($e->getMessage()) . '</div>';
+        $flashUsuarios = '<div class="alert alert-danger alert-autohide mb-4"><i class="bi bi-exclamation-triangle me-2"></i>Não foi possível concluir a operação de usuários.</div>';
+        error_log('[CoordenadorController] admin usuarios: ' . $e->getMessage());
     }
 
     if ($flashUsuarios !== null) {
@@ -265,7 +340,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['criar_quadro'])) {
         $pdo->prepare("INSERT INTO quadros_horarios (nome, periodo_letivo) VALUES (?, ?)")->execute([trim($_POST['nome_quadro']), trim($_POST['periodo_letivo'])]);
         $mensagem = '<div class="alert alert-success alert-autohide mb-4">Cenário de Quadro Horário criado!</div>';
     } catch (PDOException $e) {
-        $mensagem = '<div class="alert alert-danger mb-4"><strong>Erro no Banco de Dados:</strong> ' . $e->getMessage() . '</div>';
+        $mensagem = '<div class="alert alert-danger mb-4"><strong>Erro no Banco de Dados:</strong> Não foi possível criar o quadro de horários.</div>';
+        error_log('[CoordenadorController] criar_quadro: ' . $e->getMessage());
     }
 }
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['excluir_quadro'])) {
@@ -322,7 +398,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['duplicar_quadro'])) {
         $mensagem = '<div class="alert alert-success alert-autohide mb-4">Cenário duplicado com sucesso! Aulas copiadas perfeitamente.</div>';
     } catch (PDOException $e) {
         $pdo->rollBack(); // Desfaz se der erro
-        $mensagem = '<div class="alert alert-danger mb-4"><strong>Erro ao duplicar:</strong> ' . $e->getMessage() . '</div>';
+        $mensagem = '<div class="alert alert-danger mb-4"><strong>Erro ao duplicar:</strong> Não foi possível duplicar o cenário.</div>';
+        error_log('[CoordenadorController] duplicar_quadro: ' . $e->getMessage());
     }
 }
 
@@ -433,7 +510,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && (isset($_POST['salvar_aula_quadro'])
                     $pdo->prepare("INSERT INTO quadro_aulas (id_quadro, turno, dia_semana, curso, semestre, id_disciplina, modalidade, numero_alunos, id_professor, id_laboratorio, horario, bloco, andar, sala, carga_horaria_total, horas_laboratorio) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
                         ->execute([$id_q, $turno, $dia, $curso, $semestre, $disc, $modalidade, $num_alunos, $prof, $lab, $horario, $bloco, $andar, $sala, $carga_horaria_total, $horas_laboratorio]);
                 }
-                $mensagem = '<div class="alert alert-success alert-autohide mb-4">Grade atualizada com sucesso!</div>';
+                $_SESSION['coordenador_flash'] = '<div class="alert alert-success alert-autohide mb-4">Grade atualizada com sucesso!</div>';
+                $_SESSION['coordenador_aba'] = 'sessao-quadro-horario';
+                header('Location: painel_coordenador.php?q_id=' . (int) $id_q . '#sessao-quadro-horario');
+                exit;
             } catch (PDOException $e) {
                 if ($editando) {
                     $pdo->prepare("UPDATE quadro_aulas SET turno=?, dia_semana=?, curso=?, semestre=?, id_disciplina=?, modalidade=?, numero_alunos=?, id_professor=?, id_laboratorio=?, horario=?, bloco=?, andar=?, sala=? WHERE id=?")
@@ -442,15 +522,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && (isset($_POST['salvar_aula_quadro'])
                     $pdo->prepare("INSERT INTO quadro_aulas (id_quadro, turno, dia_semana, curso, semestre, id_disciplina, modalidade, numero_alunos, id_professor, id_laboratorio, horario, bloco, andar, sala) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
                         ->execute([$id_q, $turno, $dia, $curso, $semestre, $disc, $modalidade, $num_alunos, $prof, $lab, $horario, $bloco, $andar, $sala]);
                 }
-                $mensagem = '<div class="alert alert-warning alert-autohide mb-4">Aula salva, mas os campos de carga horária foram ignorados (banco desatualizado).</div>';
+                $_SESSION['coordenador_flash'] = '<div class="alert alert-warning alert-autohide mb-4">Aula salva, mas os campos de carga horária foram ignorados (banco desatualizado).</div>';
+                $_SESSION['coordenador_aba'] = 'sessao-quadro-horario';
+                header('Location: painel_coordenador.php?q_id=' . (int) $id_q . '#sessao-quadro-horario');
+                exit;
             }
         }
     }
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['excluir_aula_quadro'])) {
-    $pdo->prepare("DELETE FROM quadro_aulas WHERE id = ?")->execute([$_POST['id_aula_q']]);
-    $mensagem = '<div class="alert alert-info alert-autohide mb-4">Aula removida do quadro.</div>';
+    $id_aula = (int) ($_POST['id_aula_q'] ?? 0);
+    $id_q = (int) ($_POST['id_quadro_ativo'] ?? 0);
+    if ($id_q <= 0 && $id_aula > 0) {
+        $stmtQ = $pdo->prepare('SELECT id_quadro FROM quadro_aulas WHERE id = ?');
+        $stmtQ->execute([$id_aula]);
+        $id_q = (int) $stmtQ->fetchColumn();
+    }
+    if ($id_aula > 0) {
+        $pdo->prepare('DELETE FROM quadro_aulas WHERE id = ?')->execute([$id_aula]);
+    }
+    $_SESSION['coordenador_flash'] = '<div class="alert alert-info alert-autohide mb-4">Aula removida do quadro.</div>';
+    $_SESSION['coordenador_aba'] = 'sessao-quadro-horario';
+    header('Location: painel_coordenador.php?q_id=' . max(1, $id_q) . '#sessao-quadro-horario');
+    exit;
 }
 
 // --- APROVAR/REJEITAR RESERVAS PENDENTES ---
@@ -498,6 +593,140 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['acao_reserva'])) {
             'message' => strip_tags(str_replace(['<br>', '<br/>', '<br />'], ' ', $flashMsg)),
         ]);
         exit;
+    }
+
+    $_SESSION['coordenador_flash'] = $flashMsg;
+    header('Location: painel_coordenador.php#sessao-historico-geral');
+    exit;
+}
+
+// --- REALOCAR RESERVA (PENDENTE OU APROVADA) ---
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['realocar_reserva'])) {
+    $id_agendamento = (int) ($_POST['id_agendamento'] ?? 0);
+    $id_novo_lab = (int) ($_POST['id_laboratorio'] ?? 0);
+    $isAjax = isset($_POST['ajax']) && $_POST['ajax'] === '1';
+    $flashMsg = '';
+
+    $stmt_ag = $pdo->prepare("SELECT * FROM agendamentos WHERE id = ?");
+    $stmt_ag->execute([$id_agendamento]);
+    $ag = $stmt_ag->fetch(PDO::FETCH_ASSOC);
+
+    $statusReserva = $ag['status'] ?? '';
+    if (!$ag || !in_array($statusReserva, ['aprovado', 'pendente'], true)) {
+        $flashMsg = "<div class='alert alert-danger alert-autohide mb-4'>Somente reservas <strong>pendentes</strong> ou <strong>aprovadas</strong> podem ser realocadas.</div>";
+    } elseif ($id_novo_lab <= 0) {
+        $flashMsg = "<div class='alert alert-danger alert-autohide mb-4'>Selecione um laboratório de destino.</div>";
+    } elseif ((int) $ag['id_laboratorio'] === $id_novo_lab) {
+        $flashMsg = "<div class='alert alert-info alert-autohide mb-4'>A reserva já está neste laboratório.</div>";
+    } else {
+        $stmt_lab = $pdo->prepare("SELECT nome FROM laboratorios WHERE id = ?");
+        $stmt_lab->execute([$id_novo_lab]);
+        $nome_novo_lab = $stmt_lab->fetchColumn();
+        if (!$nome_novo_lab) {
+            $flashMsg = "<div class='alert alert-danger alert-autohide mb-4'>Laboratório de destino inválido.</div>";
+        } else {
+            $conflito = verificaChoqueHorario(
+                $pdo,
+                $id_novo_lab,
+                $ag['data_reserva'],
+                $ag['turno'],
+                $ag['periodo'],
+                $id_agendamento,
+                false
+            );
+            if ($conflito) {
+                $flashMsg = "<div class='alert alert-warning alert-autohide mb-4'><strong>Laboratório em uso:</strong> " . htmlspecialchars($conflito) . "</div>";
+            } else {
+                $pdo->prepare("UPDATE agendamentos SET id_laboratorio = ? WHERE id = ?")->execute([$id_novo_lab, $id_agendamento]);
+                $flashMsg = "<div class='alert alert-success alert-autohide mb-4'><i class='bi bi-arrow-left-right me-2'></i>Reserva realocada para <strong>" . htmlspecialchars($nome_novo_lab) . "</strong>.</div>";
+            }
+        }
+    }
+
+    if ($isAjax) {
+        header('Content-Type: application/json; charset=utf-8');
+        $ok = strpos($flashMsg, 'alert-success') !== false;
+        $labNome = '';
+        if ($ok && isset($nome_novo_lab)) {
+            $labNome = $nome_novo_lab;
+        }
+        echo json_encode([
+            'success' => $ok,
+            'id' => $id_agendamento,
+            'id_laboratorio' => $ok ? $id_novo_lab : null,
+            'laboratorio' => $labNome,
+            'message_html' => $flashMsg,
+        ]);
+        exit;
+    }
+
+    $_SESSION['coordenador_flash'] = $flashMsg;
+    header('Location: painel_coordenador.php#sessao-historico-geral');
+    exit;
+}
+
+// --- ALOCAR PROFESSOR DA LISTA DE ESPERA (vaga liberada) ---
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['alocar_lista_espera'])) {
+    require_once __DIR__ . '/../Config/lista_espera_schema.php';
+    require_once __DIR__ . '/../Config/disponibilidade_helpers.php';
+
+    $idLista = (int) ($_POST['id_lista_espera'] ?? 0);
+    $idLab = (int) ($_POST['id_laboratorio'] ?? 0);
+    $flashMsg = '';
+
+    $stmtLe = $pdo->prepare(
+        "SELECT le.*, u.nome AS professor
+         FROM lista_espera_laboratorio le
+         JOIN usuarios u ON u.id = le.id_professor
+         WHERE le.id = ? AND le.status = 'aguardando'
+         LIMIT 1"
+    );
+    $stmtLe->execute([$idLista]);
+    $fila = $stmtLe->fetch(PDO::FETCH_ASSOC);
+
+    if (!$fila) {
+        $flashMsg = "<div class='alert alert-danger alert-autohide mb-4'>Registro da fila não encontrado ou já atendido.</div>";
+    } elseif ($idLab <= 0) {
+        $flashMsg = "<div class='alert alert-danger alert-autohide mb-4'>Selecione um laboratório livre.</div>";
+    } else {
+        $conflito = verificaChoqueHorario(
+            $pdo,
+            $idLab,
+            $fila['data_reserva'],
+            $fila['turno'],
+            $fila['periodo'],
+            null,
+            true
+        );
+        if ($conflito) {
+            $flashMsg = "<div class='alert alert-warning alert-autohide mb-4'><strong>Não foi possível alocar:</strong> " . htmlspecialchars($conflito) . "</div>";
+        } else {
+            try {
+                $pdo->prepare(
+                    "INSERT INTO agendamentos (id_laboratorio, id_professor, id_disciplina, data_reserva, turno, periodo, status)
+                     VALUES (?, ?, ?, ?, ?, ?, 'aprovado')"
+                )->execute([
+                    $idLab,
+                    (int) $fila['id_professor'],
+                    (int) $fila['id_disciplina'],
+                    $fila['data_reserva'],
+                    $fila['turno'],
+                    $fila['periodo'],
+                ]);
+                $pdo->prepare("UPDATE lista_espera_laboratorio SET status = 'alocado' WHERE id = ?")->execute([$idLista]);
+
+                $stmtLab = $pdo->prepare('SELECT nome FROM laboratorios WHERE id = ?');
+                $stmtLab->execute([$idLab]);
+                $nomeLab = (string) ($stmtLab->fetchColumn() ?: 'Laboratório');
+
+                $flashMsg = "<div class='alert alert-success alert-autohide mb-4'><i class='bi bi-person-check me-2'></i>"
+                    . htmlspecialchars($fila['professor'])
+                    . " alocado(a) em <strong>" . htmlspecialchars($nomeLab) . "</strong> (saiu da fila de espera).</div>";
+            } catch (PDOException $e) {
+                error_log('[CoordenadorController] alocar_lista_espera: ' . $e->getMessage());
+                $flashMsg = "<div class='alert alert-danger alert-autohide mb-4'>Horário ou laboratório indisponível. Tente outro lab ou rejeite uma reserva para liberar vaga.</div>";
+            }
+        }
     }
 
     $_SESSION['coordenador_flash'] = $flashMsg;
@@ -679,7 +908,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $flashEnsalamento = '<div class="alert alert-info alert-autohide mb-4">Ensalamento removido.</div>';
         }
     } catch (PDOException $e) {
-        $flashEnsalamento = '<div class="alert alert-danger alert-autohide mb-4"><strong>Erro ao salvar ensalamento:</strong> ' . htmlspecialchars($e->getMessage()) . '</div>';
+        $flashEnsalamento = '<div class="alert alert-danger alert-autohide mb-4"><strong>Erro ao salvar ensalamento:</strong> Não foi possível salvar. Tente novamente.</div>';
+        error_log('[CoordenadorController] ensalamento: ' . $e->getMessage());
     }
 
     if ($flashEnsalamento !== null) {
@@ -722,8 +952,23 @@ if ($carregar_historico) {
          ORDER BY a.data_reserva DESC, a.id DESC
          LIMIT 300"
     )->fetchAll(PDO::FETCH_ASSOC);
+
+    require_once __DIR__ . '/../Config/lista_espera_schema.php';
+    require_once __DIR__ . '/../Config/disponibilidade_helpers.php';
+    $listaEsperaModel = new \App\Models\ListaEspera();
+    $lista_espera_geral = $listaEsperaModel->listarAguardandoTodos();
+    foreach ($lista_espera_geral as &$leRow) {
+        $leRow['posicao'] = $listaEsperaModel->posicaoNaFila((int) $leRow['id']);
+        $livres = array_filter(
+            labhub_labs_para_slot($pdo, (string) $leRow['data_reserva'], (string) $leRow['turno'], (string) $leRow['periodo'], null, true),
+            static fn($l) => ($l['status'] ?? '') === 'livre'
+        );
+        $leRow['labs_livres'] = array_values($livres);
+    }
+    unset($leRow);
 } else {
     $historico_completo = [];
+    $lista_espera_geral = [];
 }
 
 $professores = $pdo->query("SELECT id, nome FROM usuarios WHERE perfil = 'professor' ORDER BY nome ASC")->fetchAll(PDO::FETCH_ASSOC);
@@ -760,6 +1005,7 @@ $quadro_selecionado = isset($_GET['q_id']) ? $_GET['q_id'] : (count($lista_quadr
 $aulas_do_quadro = [];
 $dias_semana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 $todas_aulas = [];
+$disciplinas_no_quadro = [];
 
 if ($quadro_selecionado) {
     try {
@@ -775,6 +1021,15 @@ if ($quadro_selecionado) {
         $aulas_do_quadro[$a['dia_semana']][] = $a;
     }
 }
+
+$disciplinas_no_quadro = [];
+foreach ($todas_aulas as $a) {
+    $dn = trim((string) ($a['disc_nome'] ?? ''));
+    if ($dn !== '' && !in_array($dn, $disciplinas_no_quadro, true)) {
+        $disciplinas_no_quadro[] = $dn;
+    }
+}
+sort($disciplinas_no_quadro, SORT_NATURAL | SORT_FLAG_CASE);
 
 // =================================================================================
 // LÓGICA MASTER DOS RELATÓRIOS BI E GRÁFICOS
@@ -994,11 +1249,12 @@ if ($quadro_selecionado && count($todas_aulas) > 0) {
     }
 }
 
-$feriados_2026 = ['2026-01-01' => 'Ano Novo', '2026-02-16' => 'Recesso de Carnaval', '2026-02-17' => 'Carnaval', '2026-04-03' => 'Paixão de Cristo', '2026-04-21' => 'Tiradentes', '2026-05-01' => 'Dia do Trabalho', '2026-06-04' => 'Corpus Christi', '2026-09-07' => 'Independência', '2026-10-12' => 'Nossa Sra. Aparecida', '2026-11-02' => 'Finados', '2026-11-15' => 'Proclamação da República', '2026-12-25' => 'Natal'];
-foreach ($feriados_2026 as $data => $nome_feriado) {
-    $eventos_calendario[] = ['title' => 'Feriado: ' . $nome_feriado, 'start' => $data, 'allDay' => true, 'className' => 'apple-event-feriado', 'extendedProps' => ['local' => '<i class="bi bi-calendar-x me-1"></i> Instituição Fechada']];
+$feriados_eventos = labhub_feriados_eventos_calendario();
+foreach ($feriados_eventos as $ev) {
+    $eventos_calendario[] = $ev;
 }
-$eventos_json = json_encode($eventos_calendario);
+$feriados_datas_json = labhub_feriados_mapa_datas_json();
+$eventos_json = labhub_cal_eventos_json($eventos_calendario);
 
         // Retorna todas as variáveis geradas para a view
         $vars = get_defined_vars();

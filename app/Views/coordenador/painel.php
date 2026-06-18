@@ -8,13 +8,18 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Painel da Coordenação - UNICEPLAC</title>
+    <?php require __DIR__ . '/../partials/favicon.php'; ?>
+    <?php require __DIR__ . '/../partials/csrf-meta.php'; ?>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="css/labhub-theme.css">
+    <link rel="stylesheet" href="css/labhub-theme.css?v=20260619">
+    <link rel="stylesheet" href="css/labhub-layout.css">
+    <link rel="stylesheet" href="css/labhub-calendar.css?v=20260619">
     <link rel="stylesheet" href="css/notificacoes-nav.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales-all.global.min.js"></script>
+    <script src="js/labhub-calendar.js"></script>
 
     <script>const savedTheme = localStorage.getItem('tema-uniceplac') || 'light'; document.documentElement.setAttribute('data-bs-theme', savedTheme);</script>
     <script>
@@ -48,7 +53,8 @@
         }
 
         .bg-uniceplac {
-            background-color: var(--verde-uniceplac) !important;
+            background-color: var(--lh-verde) !important;
+            color: #fff !important;
         }
 
         .content-section {
@@ -82,8 +88,8 @@
         .offcanvas-menu-link:hover,
         .offcanvas-menu-link.active-link {
             background-color: rgba(0, 115, 79, 0.05);
-            color: var(--verde-uniceplac);
-            border-right: 4px solid var(--verde-uniceplac);
+            color: var(--verde-uniceplac-text, var(--lh-verde-text));
+            border-right: 4px solid var(--lh-verde);
         }
 
         .offcanvas-menu-ti-link {
@@ -298,113 +304,6 @@
             color: #f8f9fa !important;
         }
 
-        #calendarioGeral {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-
-        /* Estilos Padrões do Calendário Claro */
-        .fc-theme-standard .fc-scrollgrid {
-            border: 1px solid rgba(0, 0, 0, 0.05);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .fc-theme-standard td,
-        .fc-theme-standard th {
-            border-color: rgba(0, 0, 0, 0.05);
-        }
-
-        .fc-col-header-cell {
-            background-color: #fbfbfd;
-            padding: 8px 0;
-            font-weight: 600;
-            color: #86868b;
-            text-transform: uppercase;
-            font-size: 0.8rem;
-        }
-
-        .fc .fc-button-group>.fc-button {
-            background: #f5f5f7 !important;
-            color: #007aff !important;
-            border-color: #d2d2d7 !important;
-            text-transform: capitalize;
-            box-shadow: none !important;
-            font-weight: 500;
-            transition: 0.2s;
-        }
-
-        .fc .fc-button-group>.fc-button:hover {
-            background: #e8e8ed !important;
-        }
-
-        .fc .fc-button-group>.fc-button.fc-button-active {
-            background: #007aff !important;
-            color: #fff !important;
-            border-color: #007aff !important;
-        }
-
-        .fc .fc-today-button {
-            background: #fff !important;
-            color: #007aff !important;
-            border-color: #d2d2d7 !important;
-            font-weight: 600;
-            text-transform: capitalize;
-        }
-
-        .fc-toolbar-title {
-            font-weight: 700 !important;
-            color: #1d1d1f;
-            text-transform: capitalize;
-        }
-
-        .apple-event-fixa {
-            --fc-event-bg-color: rgba(66, 27, 113, 0.12);
-            --fc-event-border-color: var(--roxo-uniceplac);
-            --fc-event-text-color: var(--roxo-uniceplac);
-        }
-
-        .apple-event-avulsa {
-            --fc-event-bg-color: rgba(240, 115, 60, 0.12);
-            --fc-event-border-color: var(--laranja-uniceplac);
-            --fc-event-text-color: #c95b28;
-        }
-
-        .apple-event-feriado {
-            --fc-event-bg-color: rgba(220, 53, 69, 0.12);
-            --fc-event-border-color: #dc3545;
-            --fc-event-text-color: #a71d2a;
-        }
-
-        .fc-event {
-            border-left-width: 4px !important;
-            border-radius: 6px !important;
-            border-top: none !important;
-            border-right: none !important;
-            border-bottom: none !important;
-            padding: 2px !important;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-            margin-bottom: 2px;
-            cursor: pointer;
-        }
-
-        .fc-event-main {
-            width: 100%;
-        }
-
-        .text-truncate-multi {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .text-truncate-single {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: block;
-        }
-
         /* ==========================================================
            TEMA ESCURO (DARK MODE) - GERAL
            ========================================================== */
@@ -430,7 +329,7 @@
 
         [data-bs-theme="dark"] .text-secondary,
         [data-bs-theme="dark"] .text-muted {
-            color: #adb5bd !important;
+            color: #cbd5e1 !important;
         }
 
         [data-bs-theme="dark"] .border,
@@ -534,7 +433,7 @@
         [data-bs-theme="dark"] .grade-cabecalho {
             background-color: #2a2a2a !important;
             color: #e0e0e0 !important;
-            border-bottom: 3px solid #0d6efd !important;
+            border-bottom: 3px solid var(--lh-verde) !important;
         }
 
         [data-bs-theme="dark"] .grade-corpo {
@@ -714,8 +613,12 @@
 
     <nav class="navbar navbar-light bg-white mb-4 border-bottom shadow-sm sticky-top">
         <div class="container-fluid px-3 px-md-4">
-            <span class="navbar-brand d-flex align-items-center"><img src="uniceplac2.png" id="navbarLogo" alt="Logo"
-                    style="height: 70px; margin-right: 12px; transition: 0.3s;"></span>
+            <a href="#sessao-calendario-geral" class="navbar-brand d-flex align-items-center text-decoration-none lh-navbar-home"
+                title="Início — Calendário geral"
+                onclick="event.preventDefault(); if(typeof fecharNotificacoesPopup==='function') fecharNotificacoesPopup(); bootstrap.Offcanvas.getInstance(document.getElementById('sidebarMenu'))?.hide(); showSection('sessao-calendario-geral'); window.scrollTo({top:0,behavior:'smooth'});">
+                <img src="uniceplac2.png" id="navbarLogo" alt="Logo UNICEPLAC — início"
+                    style="height: 70px; margin-right: 12px; transition: 0.3s;">
+            </a>
             <div class="ms-auto d-flex align-items-center">
                 <div class="me-4 top-icon-btn" id="themeToggleBtn" title="Alternar Tema"><i class="bi bi-moon-stars"
                         id="themeIcon"></i></div>
@@ -744,13 +647,13 @@
                     style="width: 80px; height: 80px; object-fit: cover; border-radius: 50% !important; border: 3px solid var(--roxo-uniceplac);"
                     class="shadow-sm mb-2">
                 <h5 class="fw-bold mb-0 text-dark"><?= htmlspecialchars($_SESSION['nome']) ?></h5>
-                <span class="badge bg-uniceplac text-uppercase mt-2 px-3 py-1">Coordenador</span>
+                <span class="badge lh-badge lh-badge-coordenador text-uppercase mt-2 px-3 py-1">Coordenador</span>
             </div>
             <div class="flex-grow-1 overflow-auto">
                 <div class="p-3 text-muted small fw-bold text-uppercase opacity-50">Macro-Gestão</div>
                 <a href="javascript:void(0);" onclick="showSection('sessao-calendario-geral')"
                     data-bs-dismiss="offcanvas"
-                    class="offcanvas-menu-link text-primary fw-bold bg-light border-start border-4 border-primary"><i
+                    class="offcanvas-menu-link active-link fw-bold"><i
                         class="bi bi-calendar3 me-2"></i> Calendário Geral</a>
                 <a href="javascript:void(0);" onclick="showSection('sessao-quadro-horario')" data-bs-dismiss="offcanvas"
                     class="offcanvas-menu-link"><i class="bi bi-table me-2"></i> Quadro de Horários (Editor)</a>
@@ -842,24 +745,11 @@
 
     <?php require __DIR__ . '/abas/sessao-usuarios.php'; ?>
 
-    <div class="modal fade" id="modalDetalheEvento" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow" style="border-radius: 16px;">
-                <div class="modal-header bg-light border-0" style="border-radius: 16px 16px 0 0;">
-                    <h5 class="modal-title fw-bold text-primary" id="modalDetalheTitulo">Detalhes da Aula</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body fs-6 text-dark" id="modalDetalheCorpo"></div>
-                <div class="modal-footer border-0"><button type="button"
-                        class="btn btn-secondary rounded-pill px-4 fw-bold" data-bs-dismiss="modal">Fechar</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php require __DIR__ . '/../partials/modal-detalhe-evento.php'; ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    <script src="js/notificacoes-nav.js"></script>
+    <script src="js/notificacoes-nav.js?v=20260619b"></script>
 
     <script>
         let calendarioCoordenadorGlobal;
@@ -892,6 +782,9 @@
                 if (sectionId === 'sessao-relatorios' && typeof window.initChartsRelatorios === 'function') {
                     setTimeout(() => window.initChartsRelatorios(), 120);
                 }
+                if (typeof initLabhubComboboxes === 'function') {
+                    setTimeout(() => initLabhubComboboxes(section), 80);
+                }
             }
         };
 
@@ -906,9 +799,34 @@
         let chartPerfilInstance = null;
         let chartCursosInstance = null;
 
+        function labhubChartTheme() {
+            const rootStyle = getComputedStyle(document.documentElement);
+            return {
+                tick: rootStyle.getPropertyValue('--lh-chart-muted').trim() || '#495057',
+                text: rootStyle.getPropertyValue('--lh-chart-text').trim() || '#212529',
+                grid: rootStyle.getPropertyValue('--lh-chart-grid').trim() || 'rgba(0,0,0,0.08)',
+            };
+        }
+
+        function labhubChartScalesOptions(stacked) {
+            const theme = labhubChartTheme();
+            const base = {
+                ticks: { color: theme.tick, font: { weight: '500' } },
+                grid: { color: theme.grid },
+                border: { color: theme.grid },
+            };
+            return stacked
+                ? { x: { ...base, stacked: true }, y: { ...base, stacked: true } }
+                : { x: base, y: base };
+        }
+
         window.initChartsRelatorios = function () {
             const dados = window.dadosRelatoriosBI || {};
             const aplicarFiltro = window.aplicarFiltroDashboardRelatorios;
+            const rootStyle = getComputedStyle(document.documentElement);
+            const corLab = rootStyle.getPropertyValue('--lh-chart-lab').trim() || 'rgba(220, 38, 38, 0.85)';
+            const corSala = rootStyle.getPropertyValue('--lh-chart-sala').trim() || 'rgba(25, 135, 84, 0.85)';
+            const theme = labhubChartTheme();
 
             const elPerfil = document.getElementById('chartPerfilAulas');
             if (elPerfil && dados.profNomes && dados.profNomes.length > 0) {
@@ -918,14 +836,20 @@
                     data: {
                         labels: dados.profNomes,
                         datasets: [
-                            { label: 'Prática (Lab)', data: dados.profLab, backgroundColor: 'rgba(220, 53, 69, 0.8)', borderRadius: 4 },
-                            { label: 'Teórica (Sala)', data: dados.profSala, backgroundColor: 'rgba(25, 135, 84, 0.8)', borderRadius: 4 }
+                            { label: 'Prática (Lab)', data: dados.profLab, backgroundColor: corLab, borderRadius: 4 },
+                            { label: 'Teórica (Sala)', data: dados.profSala, backgroundColor: corSala, borderRadius: 4 }
                         ]
                     },
                     options: {
-                        responsive: true, maintainAspectRatio: false,
-                        scales: { x: { stacked: true }, y: { stacked: true } },
-                        plugins: { legend: { display: true } },
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: labhubChartScalesOptions(true),
+                        plugins: {
+                            legend: {
+                                display: true,
+                                labels: { color: theme.text, font: { weight: '600' } }
+                            }
+                        },
                         onHover: (e, el) => { e.native.target.style.cursor = el[0] ? 'pointer' : 'default'; },
                         onClick: (e, el) => { if (el.length > 0 && aplicarFiltro) aplicarFiltro(dados.profNomes[el[0].index]); }
                     }
@@ -946,8 +870,15 @@
                         }]
                     },
                     options: {
-                        responsive: true, maintainAspectRatio: false, cutout: '60%',
-                        plugins: { legend: { position: 'bottom' } },
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '60%',
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { color: theme.text, font: { weight: '600' }, padding: 14 }
+                            }
+                        },
                         onHover: (e, el) => { e.native.target.style.cursor = el[0] ? 'pointer' : 'default'; },
                         onClick: (e, el) => { if (el.length > 0 && aplicarFiltro) aplicarFiltro(dados.cursoNomes[el[0].index]); }
                     }
@@ -1149,89 +1080,12 @@
             });
 
             var calendarEl = document.getElementById('calendarioGeral');
-            if (calendarEl) {
-                // Inteligência Mobile
-                let isMobile = window.innerWidth < 768;
-                let visaoInicial = isMobile ? 'listWeek' : 'dayGridMonth';
-
-                calendarioCoordenadorGlobal = new FullCalendar.Calendar(calendarEl, {
-                    locale: 'pt-br',
-                    initialView: visaoInicial,
-
-                    navLinks: true,
-                    nowIndicator: true,
-                    dayMaxEvents: 3,
-                    headerToolbar: {
-                        left: 'prev,next today',
-                        center: 'title',
-                        right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
-                    },
-                    buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana', day: 'Dia', list: 'Lista' },
+            if (calendarEl && typeof initLabhubCalendar === 'function') {
+                calendarioCoordenadorGlobal = initLabhubCalendar(calendarEl, {
                     events: <?= $eventos_json ?>,
-                    slotMinTime: '08:00:00',
-                    slotMaxTime: '23:30:00',
-                    allDaySlot: false,
-                    expandRows: true,
-
-                    windowResize: function (arg) {
-                        if (window.innerWidth < 768) {
-                            calendarioCoordenadorGlobal.changeView('listWeek');
-                        } else {
-                            calendarioCoordenadorGlobal.changeView('dayGridMonth');
-                        }
-                    },
-
-                    eventContent: function (arg) {
-                        let isGrid = arg.view.type === 'dayGridMonth';
-                        let truncateClass = isGrid ? 'text-truncate-multi' : 'text-truncate-single';
-
-                        let timeHtml = arg.timeText
-                            ? `<div style="font-size: 0.65rem; font-weight: 800; opacity: 0.8; margin-bottom: 2px;">${arg.timeText}</div>`
-                            : '';
-
-                        let titleHtml = `<div class="${truncateClass}" style="font-size: 0.75rem; font-weight: 700; line-height: 1.2;">${arg.event.title}</div>`;
-
-                        let localHtml = '';
-                        if (!isGrid && arg.event.extendedProps.local) {
-                            localHtml = `<div class="${truncateClass}" style="font-size: 0.7rem; margin-top: 2px; opacity: 0.9;">${arg.event.extendedProps.local}</div>`;
-                        }
-
-                        let content = document.createElement('div');
-                        content.style.width = '100%';
-                        content.style.overflow = 'hidden';
-                        content.innerHTML = timeHtml + titleHtml + localHtml;
-
-                        let tooltipText = arg.event.title;
-                        if (arg.event.extendedProps.local) {
-                            tooltipText += " - " + arg.event.extendedProps.local.replace(/<[^>]*>?/gm, '');
-                        }
-                        content.title = tooltipText;
-
-                        return { domNodes: [content] };
-                    },
-
-                    eventClick: function (arg) {
-                        arg.jsEvent.preventDefault();
-                        document.getElementById('modalDetalheTitulo').innerHTML = '<i class="bi bi-calendar2-event me-2"></i>' + arg.event.title;
-                        let dataStr = arg.event.start.toLocaleDateString('pt-BR');
-                        let horaInicio = arg.event.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                        let horaFim = arg.event.end ? arg.event.end.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
-                        let horarioStr = arg.event.allDay ? 'Dia Inteiro' : `${horaInicio} às ${horaFim}`;
-                        let tipo = '<span class="badge bg-secondary">Reserva Avulsa</span>';
-                        if (arg.event.classNames.includes('apple-event-fixa')) tipo = '<span class="badge" style="background-color: var(--roxo-uniceplac);">Aula Fixa da Grade</span>';
-                        if (arg.event.classNames.includes('apple-event-feriado')) tipo = '<span class="badge bg-danger">Feriado</span>';
-                        let localStr = arg.event.extendedProps.local ? arg.event.extendedProps.local : '<i class="bi bi-geo-alt me-1"></i> Local não definido';
-                        let corpoHtml = `
-                            <div class="mb-3"><strong class="text-secondary"><i class="bi bi-clock me-1"></i> Data e Horário:</strong><br> <span class="fs-6 fw-bold">${dataStr}</span> &nbsp;|&nbsp; <span class="fs-6">${horarioStr}</span></div>
-                            <div class="mb-3"><strong class="text-secondary"><i class="bi bi-geo-alt me-1"></i> Localização:</strong><br> <span class="fs-6">${localStr}</span></div>
-                            <div class="mb-2"><strong class="text-secondary"><i class="bi bi-tag me-1"></i> Categoria:</strong><br> ${tipo}</div>
-                        `;
-                        document.getElementById('modalDetalheCorpo').innerHTML = corpoHtml;
-                        let modal = new bootstrap.Modal(document.getElementById('modalDetalheEvento'));
-                        modal.show();
-                    }
+                    mapaDatas: <?= $feriados_datas_json ?? '{}' ?>,
+                    comModalDetalhe: true
                 });
-                calendarioCoordenadorGlobal.render();
             }
 
             function updateThemeElements(theme) {
@@ -1249,6 +1103,9 @@
                     document.documentElement.setAttribute('data-bs-theme', newTheme);
                     localStorage.setItem('tema-uniceplac', newTheme);
                     updateThemeElements(newTheme);
+                    if (typeof window.initChartsRelatorios === 'function') {
+                        window.initChartsRelatorios();
+                    }
                 });
             }
 
@@ -1281,14 +1138,16 @@
             }
 
             initNotificacoesNav({
+                contexto: 'reservas',
                 verTodasFn: 'abrirSolicitacoesPendentes',
                 badgeIds: ['badge-pendentes-menu'],
                 playSound: true,
+                somVolume: 0.05,
+                initialIds: <?= json_encode(array_map(static fn($r) => 'reserva:' . $r['id'], $reservas_pendentes), JSON_UNESCAPED_UNICODE) ?>,
                 pollInterval: 120000
             });
 
             let qtdPendentesAnterior = <?= $qtd_pendentes ?>;
-            const somNotificacao = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
             function atualizarBadgesPendentes(qtd) {
                 ['badge-nav-bell', 'badge-pendentes-menu'].forEach(id => {
@@ -1299,10 +1158,28 @@
                 });
             }
 
-            function atualizarLinhaReserva(row, status) {
+            function botaoRealocarHtml(reservaId, extraClass) {
+                const cls = extraClass ? ' ' + extraClass : '';
+                return '<button type="button" class="btn btn-sm btn-outline-primary btn-realocar-reserva' + cls + '" title="Realocar para outro laboratório" data-reserva-id="' + reservaId + '"><i class="bi bi-arrow-left-right me-1"></i> Realocar</button>';
+            }
+
+            function botoesPendentesHtml(reservaId) {
+                return '<form method="POST" action="painel_coordenador.php" class="d-inline form-acao-reserva">' +
+                    '<input type="hidden" name="id_agendamento" value="' + reservaId + '">' +
+                    '<button type="button" name="acao_reserva" value="aprovar" data-acao="aprovar" class="btn btn-sm btn-success rounded-circle btn-acao-reserva" title="Aprovar"><i class="bi bi-check-lg"></i></button>' +
+                    '</form>' +
+                    '<form method="POST" action="painel_coordenador.php" class="d-inline ms-1 form-acao-reserva">' +
+                    '<input type="hidden" name="id_agendamento" value="' + reservaId + '">' +
+                    '<button type="button" name="acao_reserva" value="rejeitar" data-acao="rejeitar" class="btn btn-sm btn-danger rounded-circle btn-acao-reserva" title="Rejeitar"><i class="bi bi-x-lg"></i></button>' +
+                    '</form>' +
+                    botaoRealocarHtml(reservaId, 'ms-1');
+            }
+
+            function atualizarLinhaReserva(row, status, reservaId) {
                 if (!row || !status) return;
                 const statusTd = row.cells[4];
                 const actionsTd = row.cells[5];
+                const id = reservaId || row.getAttribute('data-reserva-id');
                 if (statusTd) {
                     if (status === 'aprovado') {
                         statusTd.innerHTML = '<span class="badge bg-success rounded-pill px-3">Aprovado</span>';
@@ -1311,9 +1188,192 @@
                     }
                 }
                 if (actionsTd) {
-                    actionsTd.innerHTML = '<span class="text-muted small">-</span>';
+                    if (status === 'aprovado') {
+                        actionsTd.innerHTML = botaoRealocarHtml(id);
+                    } else {
+                        actionsTd.innerHTML = '<span class="text-muted small">-</span>';
+                    }
                 }
             }
+
+            function atualizarLabNaLinha(row, nomeLab, idLab) {
+                if (!row) return;
+                const badge = row.querySelector('.badge-lab-nome');
+                if (badge) badge.textContent = nomeLab;
+                if (idLab) row.setAttribute('data-id-laboratorio', idLab);
+                row.setAttribute('data-laboratorio', nomeLab);
+            }
+
+            const modalRealocarEl = document.getElementById('modalRealocarReserva');
+            let modalRealocar = modalRealocarEl ? new bootstrap.Modal(modalRealocarEl) : null;
+            let realocarReservaId = null;
+            let realocarLabSelecionado = null;
+            let realocarRowAtual = null;
+
+            function mostrarAlertaRealocar(tipo, msg) {
+                const el = document.getElementById('realocarAlerta');
+                if (!el) return;
+                el.className = 'alert alert-' + tipo + ' mb-3';
+                el.innerHTML = msg;
+                el.classList.remove('d-none');
+            }
+
+            function limparAlertaRealocar() {
+                const el = document.getElementById('realocarAlerta');
+                if (el) el.classList.add('d-none');
+            }
+
+            function renderLabsRealocacao(labs) {
+                const container = document.getElementById('realocarLabsContainer');
+                if (!container) return;
+                container.innerHTML = '';
+                labs.forEach(function (lab) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-start py-3';
+                    btn.dataset.labId = lab.id;
+                    btn.dataset.status = lab.status;
+
+                    let badgeClass = 'bg-secondary';
+                    let badgeText = 'Atual';
+                    if (lab.status === 'livre') {
+                        badgeClass = 'bg-success';
+                        badgeText = 'Livre';
+                    } else if (lab.status === 'ocupado') {
+                        badgeClass = 'bg-danger';
+                        badgeText = 'Em uso';
+                    }
+
+                    btn.innerHTML =
+                        '<div class="me-2 text-start">' +
+                        '<strong>' + lab.nome + '</strong>' +
+                        '<div class="small text-muted">Capacidade: ' + lab.capacidade + ' lugares</div>' +
+                        (lab.motivo && lab.status === 'ocupado' ? '<div class="small text-danger mt-1">' + lab.motivo + '</div>' : '') +
+                        '</div>' +
+                        '<span class="badge ' + badgeClass + ' rounded-pill">' + badgeText + '</span>';
+
+                    if (lab.status === 'ocupado') {
+                        btn.classList.add('list-group-item-danger', 'opacity-75');
+                    } else if (lab.status === 'atual') {
+                        btn.classList.add('list-group-item-light');
+                    }
+
+                    btn.addEventListener('click', function () {
+                        limparAlertaRealocar();
+                        container.querySelectorAll('.list-group-item').forEach(function (item) {
+                            item.classList.remove('active');
+                        });
+                        if (lab.status === 'ocupado') {
+                            mostrarAlertaRealocar('warning', '<i class="bi bi-exclamation-triangle me-2"></i><strong>Laboratório em uso.</strong> ' + (lab.motivo || 'Escolha outro lab livre no mesmo horário.'));
+                            realocarLabSelecionado = null;
+                            document.getElementById('btnConfirmarRealocacao').disabled = true;
+                            return;
+                        }
+                        if (lab.status === 'atual') {
+                            mostrarAlertaRealocar('info', 'Este já é o laboratório atual da reserva.');
+                            realocarLabSelecionado = null;
+                            document.getElementById('btnConfirmarRealocacao').disabled = true;
+                            return;
+                        }
+                        btn.classList.add('active');
+                        realocarLabSelecionado = lab.id;
+                        document.getElementById('btnConfirmarRealocacao').disabled = false;
+                    });
+                    container.appendChild(btn);
+                });
+            }
+
+            function abrirModalRealocacao(reservaId, row) {
+                if (!modalRealocar) return;
+                realocarReservaId = reservaId;
+                realocarRowAtual = row;
+                realocarLabSelecionado = null;
+                limparAlertaRealocar();
+                document.getElementById('btnConfirmarRealocacao').disabled = true;
+                document.getElementById('realocarCarregando').classList.remove('d-none');
+                document.getElementById('realocarListaLabs').classList.add('d-none');
+                document.getElementById('realocarLabsContainer').innerHTML = '';
+
+                const resumo = row
+                    ? row.getAttribute('data-professor') + ' · ' + row.getAttribute('data-data') + ' · ' + row.getAttribute('data-turno') + ' (' + row.getAttribute('data-periodo') + ') · Lab atual: <strong>' + row.getAttribute('data-laboratorio') + '</strong>'
+                    : '';
+                document.getElementById('realocarResumo').innerHTML = resumo;
+
+                modalRealocar.show();
+
+                fetch('painel_coordenador.php?ajax=labs_realocacao&id_agendamento=' + encodeURIComponent(reservaId), { cache: 'no-store' })
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        document.getElementById('realocarCarregando').classList.add('d-none');
+                        if (!data.ok) {
+                            mostrarAlertaRealocar('danger', data.error || 'Não foi possível carregar os laboratórios.');
+                            return;
+                        }
+                        document.getElementById('realocarListaLabs').classList.remove('d-none');
+                        renderLabsRealocacao(data.labs || []);
+                        const livres = (data.labs || []).filter(function (l) { return l.status === 'livre'; }).length;
+                        if (livres === 0) {
+                            mostrarAlertaRealocar('warning', '<i class="bi bi-exclamation-triangle me-2"></i>Nenhum outro laboratório livre neste dia e horário.');
+                        }
+                    })
+                    .catch(function () {
+                        document.getElementById('realocarCarregando').classList.add('d-none');
+                        mostrarAlertaRealocar('danger', 'Erro de conexão ao verificar disponibilidade.');
+                    });
+            }
+
+            document.getElementById('container-tabela-historico-geral')?.addEventListener('click', function (e) {
+                const btn = e.target.closest('.btn-realocar-reserva');
+                if (!btn) return;
+                const row = btn.closest('tr');
+                abrirModalRealocacao(btn.getAttribute('data-reserva-id'), row);
+            });
+
+            document.getElementById('btnConfirmarRealocacao')?.addEventListener('click', function () {
+                if (!realocarReservaId || !realocarLabSelecionado) return;
+                const btn = this;
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Salvando...';
+
+                const formData = new FormData();
+                formData.set('ajax', '1');
+                formData.set('realocar_reserva', '1');
+                formData.set('id_agendamento', realocarReservaId);
+                formData.set('id_laboratorio', realocarLabSelecionado);
+
+                fetch('painel_coordenador.php', {
+                    method: 'POST',
+                    body: formData,
+                    cache: 'no-store',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        btn.innerHTML = 'Confirmar realocação';
+                        btn.disabled = false;
+                        if (data.message_html) {
+                            exibirMensagemFlash(data.message_html);
+                        }
+                        if (data.success) {
+                            atualizarLabNaLinha(realocarRowAtual, data.laboratorio, data.id_laboratorio);
+                            if (modalRealocar) modalRealocar.hide();
+                        } else if (data.message_html) {
+                            mostrarAlertaRealocar('warning', data.message_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+                        }
+                    })
+                    .catch(function () {
+                        btn.innerHTML = 'Confirmar realocação';
+                        btn.disabled = false;
+                        mostrarAlertaRealocar('danger', 'Falha na conexão. Tente novamente.');
+                    });
+            });
+
+            modalRealocarEl?.addEventListener('hidden.bs.modal', function () {
+                realocarReservaId = null;
+                realocarLabSelecionado = null;
+                realocarRowAtual = null;
+                limparAlertaRealocar();
+            });
 
             function exibirMensagemFlash(html) {
                 const container = document.getElementById('container-mensagens');
@@ -1374,7 +1434,7 @@
                     .then(data => {
                         exibirMensagemFlash(data.message_html);
                         if (data.success) {
-                            atualizarLinhaReserva(row, data.status);
+                            atualizarLinhaReserva(row, data.status, data.id);
                             atualizarBadgesPendentes(data.qtd_pendentes);
                             qtdPendentesAnterior = data.qtd_pendentes;
                             if (typeof window.recarregarNotificacoes === 'function') {
@@ -1412,25 +1472,23 @@
             window.filtrarGrade = function () {
                 const turnoSelecionado = document.getElementById('filtroTurnoGrade').value;
                 const cursoSelecionado = document.getElementById('filtroCursoGrade').value;
+                const modalidadeSelecionada = document.getElementById('filtroModalidadeGrade').value;
+                const disciplinaEl = document.getElementById('filtroDisciplinaGrade');
+                const disciplinaSelecionada = disciplinaEl ? disciplinaEl.value : 'todos';
                 const cardsAula = document.querySelectorAll('.card-grade-aula');
-
-                const modalidadeSelecionada = document.getElementById('filtroModalidadeGrade').value; // Captura o novo filtro
 
                 cardsAula.forEach(card => {
                     const cardTurno = card.getAttribute('data-turno');
                     const cardCurso = card.getAttribute('data-curso');
                     const cardModalidade = card.getAttribute('data-modalidade');
+                    const cardDisciplina = card.getAttribute('data-disciplina') || '';
 
+                    const matchTurno = (turnoSelecionado === 'todos' || cardTurno === turnoSelecionado);
+                    const matchCurso = (cursoSelecionado === 'todos' || cardCurso === cursoSelecionado);
+                    const matchModalidade = (modalidadeSelecionada === 'todos' || cardModalidade === modalidadeSelecionada);
+                    const matchDisciplina = (disciplinaSelecionada === 'todos' || cardDisciplina === disciplinaSelecionada);
 
-                    let matchTurno = (turnoSelecionado === 'todos' || cardTurno === turnoSelecionado);
-                    let matchCurso = (cursoSelecionado === 'todos' || cardCurso === cursoSelecionado);
-                    let matchModalidade = (modalidadeSelecionada === 'todos' || cardModalidade === modalidadeSelecionada);
-
-
-                    if (matchTurno && matchCurso && (modalidadeSelecionada === 'todos' || cardModalidade === modalidadeSelecionada)) {
-                        card.style.display = 'block';
-
-                    } else { card.style.display = 'none'; }
+                    card.style.display = (matchTurno && matchCurso && matchModalidade && matchDisciplina) ? 'block' : 'none';
                 });
             };
         });

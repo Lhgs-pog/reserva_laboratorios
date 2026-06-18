@@ -7,11 +7,7 @@ use Illuminate\Http\Request;
  * e despacha para o Controller correto baseado no arquivo chamado.
  */
 
-// ── Sessão (uma única vez por request) ──────────────────────────────────────
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
+// ── Env + autoload (antes da sessão — Database precisa existir) ─────────────
 require_once __DIR__ . '/Config/env.php';
 app_load_env(dirname(__DIR__, 1));
 if (app_env('APP_ENV', 'production') === 'production') {
@@ -19,12 +15,10 @@ if (app_env('APP_ENV', 'production') === 'production') {
     ini_set('log_errors', '1');
 }
 
-// ── Autoload Composer (Google API, PHPMailer via Composer, etc.) ─────────────
 if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
     require_once __DIR__ . '/../vendor/autoload.php';
 }
 
-// ── Autoload PSR-4 para namespace App\ ──────────────────────────────────────
 spl_autoload_register(function ($class) {
     $prefix   = 'App\\';
     $base_dir = __DIR__ . '/';
@@ -42,6 +36,10 @@ spl_autoload_register(function ($class) {
     }
 });
 
+// ── Sessão (persistente no banco — sobrevive a deploy) ───────────────────────
+require_once __DIR__ . '/Config/session_bootstrap.php';
+labhub_session_start();
+
 // ── Bootstrap Eloquent (lazy) — só conecta ao banco quando o controller precisa ──
 
 // ── Tabela de rotas: arquivo → [Controller, método] ─────────────────────────
@@ -52,8 +50,6 @@ function getControllerAndAction() {
         // Autenticação
         'index'          => ['AuthController', 'login'],
         'login'          => ['AuthController', 'login'],
-        'cadastro'       => ['AuthController', 'cadastro'],
-        'login_google'   => ['AuthController', 'loginGoogle'],
         'logout'         => ['AuthController', 'logout'],
         'verificar'      => ['AuthController', 'verificarEmail'],
         'redefinir_senha'=> ['AuthController', 'redefinirSenha'],
@@ -86,6 +82,9 @@ function executeRouter() {
         return null;
     }
 
+    require_once __DIR__ . '/Config/csrf_helpers.php';
+    labhub_csrf_require_post($route);
+
     list($controllerName, $action) = $route;
 
     $controllerClass = "App\\Controllers\\{$controllerName}";
@@ -99,11 +98,17 @@ function executeRouter() {
 
     require_once __DIR__ . '/Config/env.php';
     require_once __DIR__ . '/Config/foto_helpers.php';
-    if (!in_array($action, ['login', 'cadastro', 'esqueci_senha'], true) || ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+    if (!in_array($action, ['login', 'esqueci_senha'], true) || ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
         app_boot_database();
     }
 
-    $controller = new $controllerClass($request);
+    $ref = new \ReflectionClass($controllerClass);
+    $ctor = $ref->getConstructor();
+    if ($ctor && $ctor->getNumberOfRequiredParameters() > 0) {
+        $controller = new $controllerClass($request);
+    } else {
+        $controller = new $controllerClass();
+    }
 
     if (!method_exists($controller, $action)) {
         return null;

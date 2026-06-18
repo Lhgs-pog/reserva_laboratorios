@@ -7,14 +7,12 @@
  * causando HTTP 404. Este arquivo verifica a sessão e redireciona corretamente.
  */
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/app/Config/session_bootstrap.php';
+labhub_session_start();
 
 // Redireciona para o painel correto conforme perfil
 if (!isset($_SESSION['usuario_id'])) {
-    header("Location: index.php");
-    exit;
+    labhub_redirect_login('expired');
 }
 
 $destinos = [

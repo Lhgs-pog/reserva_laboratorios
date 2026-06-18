@@ -1,0 +1,91 @@
+/**
+ * LabHub — contenção de layout (evita scroll horizontal e containers “vazando”)
+ */
+html {
+    overflow-x: clip;
+    width: 100%;
+}
+
+body {
+    overflow-x: clip;
+    width: 100%;
+    max-width: 100%;
+}
+
+.container-fluid,
+.content-section {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.row {
+    max-width: 100%;
+}
+
+.card,
+.alert,
+.apple-search-box,
+.apple-ticket,
+.apple-kpi {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.table-responsive {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+}
+
+.grade-wrapper {
+    max-width: 100%;
+}
+
+.modal-dialog {
+    max-width: min(560px, calc(100vw - 1.25rem));
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.modal-dialog.modal-lg {
+    max-width: min(800px, calc(100vw - 1.25rem));
+}
+
+.modal-dialog.modal-xl {
+    max-width: min(1140px, calc(100vw - 1.25rem));
+}
+
+nav.navbar .container-fluid {
+    overflow: visible;
+}
+
+nav.navbar {
+    max-width: 100%;
+}
+
+.offcanvas {
+    max-width: min(400px, 100vw);
+}
+
+#navbarLogo,
+.navbar-brand img {
+    max-width: min(180px, 42vw);
+    height: auto;
+    object-fit: contain;
+}
+
+form.bg-white,
+.card-body {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.lh-calendar-wrap,
+.fc {
+    max-width: 100%;
+}
+
+.lh-calendar-wrap .fc-view-harness {
+    overflow-x: auto;
+}

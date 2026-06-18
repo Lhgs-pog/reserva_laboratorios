@@ -56,8 +56,12 @@
                                         (Ex: Oficial 2026.1):</label><input type="text" name="nome_quadro"
                                         class="form-control" required></div>
                                 <div class="mb-4"><label class="form-label fw-bold small text-secondary">Período
-                                        Letivo:</label><input type="text" name="periodo_letivo" class="form-control"
-                                        required placeholder="Ex: 2026.1" data-lh-pick="semestres" data-lh-create="semestres"></div>
+                                        Letivo:</label><select name="periodo_letivo" class="form-select" required data-lh-combobox data-lh-create="semestres" data-lh-value="nome">
+                                        <option value="">Selecione o período...</option>
+                                        <?php foreach ($semestres_cadastrados as $sem): ?>
+                                            <option value="<?= htmlspecialchars($sem['nome']) ?>"><?= htmlspecialchars($sem['nome']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select></div>
                                 <button type="submit" name="criar_quadro" class="btn btn-primary w-100 fw-bold">Salvar
                                     Quadro</button>
                             </form>
@@ -88,8 +92,12 @@
                                     </div>
                                     <div class="mb-4">
                                         <label class="form-label fw-bold small text-secondary">Novo Período Letivo:</label>
-                                        <input type="text" name="novo_periodo_letivo" class="form-control" required
-                                            placeholder="Ex: 2026.2" data-lh-pick="semestres" data-lh-create="semestres">
+                                        <select name="novo_periodo_letivo" class="form-select" required data-lh-combobox data-lh-create="semestres" data-lh-value="nome">
+                                            <option value="">Selecione o período...</option>
+                                            <?php foreach ($semestres_cadastrados as $sem): ?>
+                                                <option value="<?= htmlspecialchars($sem['nome']) ?>"><?= htmlspecialchars($sem['nome']) ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
                                     </div>
                                     <button type="submit" name="duplicar_quadro"
                                         class="btn btn-warning w-100 fw-bold text-dark"><i class="bi bi-magic me-2"></i>
@@ -123,15 +131,16 @@
                                     <div class="col-md-3">
                                         <label class="form-label fw-bold small text-secondary">Curso:</label>
                                         <select class="form-select bg-light" name="curso_aula" required data-lh-combobox data-lh-create="cursos" data-lh-value="nome">
-                                            <option value="">Selecione...</option>
+                                            <option value="">Selecione o curso...</option>
                                             <?php foreach ($cursos_cadastrados as $c): ?>
                                                 <option value="<?= htmlspecialchars($c['nome']) ?>">
                                                     <?= htmlspecialchars($c['nome']) ?></option>
                                             <?php endforeach; ?>
                                         </select>
+                                        <div class="form-text">Nome do curso (ex.: Administração). Não use o nome da disciplina aqui.</div>
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="form-label fw-bold small text-secondary">Semestre:</label>
+                                        <label class="form-label fw-bold small text-secondary">Série / turma:</label>
                                         <select class="form-select bg-light" name="semestre_aula" required data-lh-combobox data-lh-create="semestres" data-lh-value="nome">
                                             <option value="">Selecione...</option>
                                             <?php foreach ($semestres_cadastrados as $sem): ?>
@@ -316,9 +325,15 @@
                             <option value="EAD">EAD</option>
                             <option value="Híbrido">Híbrido</option>
                         </select>
+                        <select id="filtroDisciplinaGrade" class="form-select w-auto border-primary" onchange="filtrarGrade()">
+                            <option value="todos">Todas Disciplinas</option>
+                            <?php foreach ($disciplinas_no_quadro ?? [] as $dn): ?>
+                                <option value="<?= htmlspecialchars($dn) ?>"><?= htmlspecialchars($dn) ?></option>
+                            <?php endforeach; ?>
+                        </select>
 
                         <button class="btn btn-outline-secondary btn-sm fw-bold ms-auto"
-                            onclick="document.getElementById('filtroTurnoGrade').value='todos'; document.getElementById('filtroCursoGrade').value='todos'; document.getElementById('filtroModalidadeGrade').value='todos'; filtrarGrade();">
+                            onclick="document.getElementById('filtroTurnoGrade').value='todos'; document.getElementById('filtroCursoGrade').value='todos'; document.getElementById('filtroModalidadeGrade').value='todos'; document.getElementById('filtroDisciplinaGrade').value='todos'; filtrarGrade();">
                             <i class="bi bi-eraser-fill me-1"></i> Limpar Filtros
                         </button>
                     </div>
@@ -370,6 +385,7 @@
                                                     data-id-aula="<?= (int) $a['id'] ?>"
                                                     data-turno="<?= htmlspecialchars($a['turno']) ?>"
                                                     data-curso="<?= htmlspecialchars($a['curso']) ?>"
+                                                    data-disciplina="<?= htmlspecialchars($a['disc_nome']) ?>"
                                                     data-modalidade="<?= htmlspecialchars($a['modalidade']) ?>">
 
                                                     <div class="position-absolute top-0 end-0 p-1 d-flex d-print-none">
@@ -379,6 +395,7 @@
                                                         <form method="POST" action="painel_coordenador.php#sessao-quadro-horario"
                                                             onsubmit="return confirm('Remover esta aula do quadro?');">
                                                             <input type="hidden" name="id_aula_q" value="<?= $a['id'] ?>">
+                                                            <input type="hidden" name="id_quadro_ativo" value="<?= (int) $quadro_selecionado ?>">
                                                             <button type="submit" name="excluir_aula_quadro"
                                                                 class="btn btn-sm text-danger p-0 m-0 border-0" title="Excluir"><i
                                                                     class="bi bi-x-circle-fill"></i></button>
@@ -387,14 +404,14 @@
 
                                                     <div class="fw-bold text-dark lh-sm mb-1"
                                                         style="padding-right: 35px; font-size:0.85rem;">
-                                                        <?= htmlspecialchars($a['curso']) ?> <br>
+                                                        <?= htmlspecialchars($a['disc_nome']) ?><br>
                                                         <span class="text-secondary"
-                                                            style="font-size:0.75rem;"><?= htmlspecialchars($a['semestre']) ?></span>
+                                                            style="font-size:0.75rem;"><?= htmlspecialchars($a['curso']) ?> · <?= htmlspecialchars($a['semestre']) ?></span>
                                                     </div>
 
                                                     <div
                                                         class="text-secondary small fw-bold mb-2 border-bottom pb-2 border-secondary border-opacity-25">
-                                                        <?= htmlspecialchars($a['disc_nome']) ?>
+                                                        <?= htmlspecialchars($a['modalidade']) ?>
                                                     </div>
 
                                                     <div>

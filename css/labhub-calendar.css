@@ -1,0 +1,563 @@
+/**
+ * LabHub — FullCalendar (layout, dark mode, feriados e pontos facultativos)
+ */
+:root {
+    /* FullCalendar aplica hover nos <td> — sobrescrever o #f5f5f5 padrão */
+    --fc-list-event-hover-bg-color: #f1f5f9;
+    --lh-cal-border: rgba(0, 0, 0, 0.08);
+    --lh-cal-header-bg: #f4f6f8;
+    --lh-cal-header-fg: #64748b;
+    --lh-cal-day-bg: #ffffff;
+    --lh-cal-day-other: #f8fafc;
+    --lh-cal-today-bg: rgba(0, 115, 79, 0.08);
+    --lh-cal-today-ring: var(--lh-verde);
+    --lh-cal-feriado-bg: rgba(220, 38, 38, 0.07);
+    --lh-cal-facultativo-bg: rgba(202, 138, 4, 0.1);
+    --lh-cal-weekend-bg: rgba(0, 0, 0, 0.02);
+    --lh-cal-list-row-bg: #ffffff;
+    --lh-cal-list-row-hover: #f8fafc;
+    --lh-cal-list-day-bg: #f1f5f9;
+    --lh-cal-list-title-fg: #0f172a;
+    --lh-cal-list-time-fg: #475569;
+    --lh-cal-list-meta-fg: #64748b;
+}
+
+[data-bs-theme="dark"] {
+    --fc-list-event-hover-bg-color: #2d2d2d;
+    --lh-cal-border: #334155;
+    --lh-cal-header-bg: #1e293b;
+    --lh-cal-header-fg: #e2e8f0;
+    --lh-cal-day-bg: #141414;
+    --lh-cal-day-other: #0f0f0f;
+    --lh-cal-today-bg: rgba(0, 115, 79, 0.22);
+    --lh-cal-today-ring: #34d399;
+    --lh-cal-feriado-bg: rgba(248, 113, 113, 0.12);
+    --lh-cal-facultativo-bg: rgba(250, 204, 21, 0.1);
+    --lh-cal-weekend-bg: rgba(255, 255, 255, 0.02);
+    --lh-cal-list-row-bg: #1a1a1a;
+    --lh-cal-list-row-hover: #242424;
+    --lh-cal-list-day-bg: #0f172a;
+    --lh-cal-list-title-fg: #f1f5f9;
+    --lh-cal-list-time-fg: #cbd5e1;
+    --lh-cal-list-meta-fg: #94a3b8;
+}
+
+.lh-calendar-wrap {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    border: 1px solid var(--lh-cal-border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--lh-cal-day-bg);
+}
+
+.lh-calendar-wrap .fc-toolbar {
+    padding: 0.75rem 1rem 0.25rem;
+    margin-bottom: 0 !important;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.lh-calendar-wrap .fc-toolbar-title {
+    font-weight: 700 !important;
+    font-size: 1.15rem !important;
+    color: var(--bs-body-color);
+    text-transform: capitalize;
+}
+
+.lh-calendar-wrap .fc .fc-button {
+    border-radius: 8px !important;
+    font-weight: 600;
+    text-transform: capitalize;
+    box-shadow: none !important;
+}
+
+.lh-calendar-wrap .fc .fc-button-group > .fc-button {
+    background: var(--lh-cal-header-bg) !important;
+    color: var(--lh-azul) !important;
+    border-color: var(--lh-cal-border) !important;
+}
+
+.lh-calendar-wrap .fc .fc-button-group > .fc-button:hover {
+    filter: brightness(0.97);
+}
+
+.lh-calendar-wrap .fc .fc-button-group > .fc-button.fc-button-active {
+    background: var(--lh-azul) !important;
+    color: #fff !important;
+    border-color: var(--lh-azul) !important;
+}
+
+[data-bs-theme="dark"] .lh-calendar-wrap .fc .fc-button-group > .fc-button.fc-button-active {
+    background: #0a84ff !important;
+    border-color: #0a84ff !important;
+}
+
+.lh-calendar-wrap .fc .fc-today-button {
+    background: var(--lh-cal-day-bg) !important;
+    color: var(--lh-azul) !important;
+    border-color: var(--lh-cal-border) !important;
+}
+
+.lh-calendar-wrap .fc-theme-standard .fc-scrollgrid {
+    border: none;
+    border-top: 1px solid var(--lh-cal-border);
+}
+
+.lh-calendar-wrap .fc-theme-standard td,
+.lh-calendar-wrap .fc-theme-standard th {
+    border-color: var(--lh-cal-border) !important;
+}
+
+.lh-calendar-wrap .fc-col-header-cell {
+    background: var(--lh-cal-header-bg) !important;
+    padding: 10px 0;
+    font-weight: 700;
+    color: var(--lh-cal-header-fg) !important;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+}
+
+.lh-calendar-wrap .fc-daygrid-day {
+    background: var(--lh-cal-day-bg);
+}
+
+.lh-calendar-wrap .fc-daygrid-day.fc-day-other {
+    background: var(--lh-cal-day-other);
+}
+
+.lh-calendar-wrap .fc-daygrid-day.fc-day-sat,
+.lh-calendar-wrap .fc-daygrid-day.fc-day-sun {
+    background: linear-gradient(180deg, var(--lh-cal-weekend-bg), transparent 40%), var(--lh-cal-day-bg);
+}
+
+.lh-calendar-wrap .fc-daygrid-day-frame {
+    min-height: 108px;
+    padding: 6px 8px 8px;
+}
+
+.lh-calendar-wrap .fc-daygrid-day-number {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--bs-body-color);
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-bottom: 4px;
+}
+
+.lh-calendar-wrap .fc-day-today .fc-daygrid-day-number {
+    background: var(--lh-cal-today-ring);
+    color: #fff;
+}
+
+.lh-calendar-wrap .fc-day-today {
+    background: var(--lh-cal-today-bg) !important;
+}
+
+.lh-calendar-wrap .lh-cal-dia-feriado {
+    background: var(--lh-cal-feriado-bg) !important;
+}
+
+.lh-calendar-wrap .lh-cal-dia-facultativo {
+    background: var(--lh-cal-facultativo-bg) !important;
+}
+
+.lh-calendar-wrap .fc-daygrid-event {
+    white-space: normal !important;
+    align-items: flex-start !important;
+    margin-bottom: 3px !important;
+}
+
+.lh-calendar-wrap .fc-daygrid-event .fc-event-main {
+    white-space: normal !important;
+    overflow: hidden;
+    line-height: 1.25;
+}
+
+.lh-calendar-wrap .fc-event {
+    border-left-width: 4px !important;
+    border-radius: 6px !important;
+    border-top: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    padding: 3px 5px !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+}
+
+.lh-calendar-wrap .fc-daygrid-more-link {
+    font-weight: 700;
+    font-size: 0.72rem;
+    color: var(--lh-azul);
+}
+
+.lh-calendar-wrap .fc-daygrid-block-event,
+.lh-calendar-wrap .fc-h-event,
+.lh-calendar-wrap .fc-v-event {
+    background-color: var(--fc-event-bg-color, rgba(37, 99, 235, 0.15)) !important;
+    border-color: var(--fc-event-border-color, #00734F) !important;
+}
+
+.lh-calendar-wrap .fc-daygrid-block-event .fc-event-main,
+.lh-calendar-wrap .fc-h-event .fc-event-main,
+.lh-calendar-wrap .fc-v-event .fc-event-main {
+    color: var(--fc-event-text-color, inherit) !important;
+}
+
+/* ── Visualização Lista (listWeek / listDay) ───────────────────────────── */
+.lh-calendar-wrap .fc-list {
+    border-color: var(--lh-cal-border) !important;
+}
+
+.lh-calendar-wrap .fc-list-table {
+    border-color: var(--lh-cal-border) !important;
+}
+
+.lh-calendar-wrap .fc-list-day > * {
+    background: var(--lh-cal-list-day-bg) !important;
+    border-color: var(--lh-cal-border) !important;
+}
+
+.lh-calendar-wrap .fc-list-day-cushion {
+    padding: 10px 14px !important;
+    font-weight: 700 !important;
+    font-size: 0.85rem !important;
+    color: var(--lh-cal-list-title-fg) !important;
+    text-transform: capitalize;
+}
+
+.lh-calendar-wrap .fc-list-day-text,
+.lh-calendar-wrap .fc-list-day-side-text {
+    color: var(--lh-cal-list-title-fg) !important;
+    font-weight: 700;
+}
+
+.lh-calendar-wrap .fc-list-event {
+    background: var(--lh-cal-list-row-bg) !important;
+    border-color: var(--lh-cal-border) !important;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.lh-calendar-wrap .fc-list-event:hover,
+.lh-calendar-wrap .fc-list-event:hover td {
+    background-color: var(--fc-list-event-hover-bg-color, var(--lh-cal-list-row-hover)) !important;
+}
+
+.lh-calendar-wrap .fc-list-event td {
+    border-color: var(--lh-cal-border) !important;
+    padding: 10px 12px !important;
+    vertical-align: middle !important;
+}
+
+.lh-calendar-wrap .fc-list-event-time {
+    color: var(--lh-cal-list-time-fg) !important;
+    font-weight: 700 !important;
+    font-size: 0.8rem !important;
+    white-space: nowrap;
+}
+
+.lh-calendar-wrap .fc-list-event-title,
+.lh-calendar-wrap .fc-list-event-title a {
+    color: var(--lh-cal-list-title-fg) !important;
+    font-weight: 600 !important;
+    font-size: 0.88rem !important;
+    text-decoration: none !important;
+}
+
+.lh-calendar-wrap .fc-list-event .lh-cal-event-title,
+.lh-calendar-wrap .fc-list-event .lh-cal-event-time,
+.lh-calendar-wrap .fc-list-event .lh-cal-event-local,
+.lh-calendar-wrap .fc-list-event .lh-cal-event-status {
+    color: var(--lh-cal-list-title-fg) !important;
+}
+
+.lh-calendar-wrap .fc-list-event .lh-cal-event-time {
+    color: var(--lh-cal-list-time-fg) !important;
+    font-size: 0.78rem !important;
+}
+
+.lh-calendar-wrap .fc-list-event .lh-cal-event-local {
+    color: var(--lh-cal-list-meta-fg) !important;
+    font-size: 0.78rem !important;
+    margin-top: 4px;
+}
+
+.lh-calendar-wrap .fc-list-event-graphic {
+    padding-left: 12px !important;
+}
+
+.lh-calendar-wrap .fc-list-event-dot {
+    width: 10px !important;
+    height: 10px !important;
+    border-width: 3px !important;
+    border-color: var(--fc-event-border-color, var(--lh-azul)) !important;
+    background-color: var(--fc-event-border-color, var(--lh-azul)) !important;
+}
+
+/* Faixa lateral por tipo — legível em claro e escuro */
+.lh-calendar-wrap .fc-list-event.apple-event-fixa {
+    box-shadow: inset 4px 0 0 var(--fc-event-border-color, #7c3aed);
+}
+
+.lh-calendar-wrap .fc-list-event.apple-event-avulsa {
+    box-shadow: inset 4px 0 0 var(--fc-event-border-color, #ea580c);
+}
+
+.lh-calendar-wrap .fc-list-event.apple-event-pendente {
+    box-shadow: inset 4px 0 0 var(--fc-event-border-color, #ca8a04);
+}
+
+.lh-calendar-wrap .fc-list-event.apple-event-rejeitado {
+    box-shadow: inset 4px 0 0 var(--fc-event-border-color, #64748b);
+    opacity: 0.85;
+}
+
+.lh-calendar-wrap .fc-list-event.apple-event-feriado {
+    box-shadow: inset 4px 0 0 var(--fc-event-border-color, #dc2626);
+}
+
+.lh-calendar-wrap .fc-list-event.apple-event-facultativo {
+    box-shadow: inset 4px 0 0 var(--fc-event-border-color, #ca8a04);
+}
+
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event.apple-event-fixa {
+    background: rgba(124, 58, 237, 0.12) !important;
+}
+
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event.apple-event-avulsa {
+    background: rgba(234, 88, 12, 0.12) !important;
+}
+
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event.apple-event-pendente {
+    background: rgba(202, 138, 4, 0.14) !important;
+}
+
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event.apple-event-rejeitado {
+    background: rgba(100, 116, 139, 0.14) !important;
+}
+
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event.apple-event-feriado {
+    background: rgba(220, 38, 38, 0.14) !important;
+}
+
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event.apple-event-facultativo {
+    background: rgba(202, 138, 4, 0.1) !important;
+}
+
+/* Hover na lista: manter tom colorido + texto legível (FC pinta os <td>) */
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event.apple-event-fixa:hover td {
+    background-color: rgba(124, 58, 237, 0.24) !important;
+}
+
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event.apple-event-avulsa:hover td {
+    background-color: rgba(234, 88, 12, 0.24) !important;
+}
+
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event.apple-event-pendente:hover td {
+    background-color: rgba(202, 138, 4, 0.26) !important;
+}
+
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event.apple-event-rejeitado:hover td {
+    background-color: rgba(100, 116, 139, 0.26) !important;
+}
+
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event.apple-event-feriado:hover td {
+    background-color: rgba(220, 38, 38, 0.26) !important;
+}
+
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event.apple-event-facultativo:hover td {
+    background-color: rgba(202, 138, 4, 0.2) !important;
+}
+
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event:hover .fc-list-event-time,
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event:hover .fc-list-event-title,
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event:hover .fc-list-event-title a,
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event:hover .lh-cal-event-title,
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event:hover .lh-cal-event-time,
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event:hover .lh-cal-event-local,
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event:hover .lh-cal-event-status {
+    color: var(--lh-cal-list-title-fg) !important;
+}
+
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event:hover .fc-list-event-time,
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event:hover .lh-cal-event-time {
+    color: var(--lh-cal-list-time-fg) !important;
+}
+
+[data-bs-theme="dark"] .lh-calendar-wrap .fc-list-event:hover .lh-cal-event-local {
+    color: var(--lh-cal-list-meta-fg) !important;
+}
+
+.lh-calendar-wrap .fc-list-empty {
+    background: var(--lh-cal-list-row-bg) !important;
+    color: var(--lh-cal-list-meta-fg) !important;
+    padding: 2rem !important;
+}
+
+.lh-legenda-calendario {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.5rem;
+    align-items: center;
+}
+
+.lh-cal-event-status {
+    display: inline-block;
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-top: 2px;
+    opacity: 0.92;
+}
+
+.lh-calendar-wrap .fc-list-event-dot {
+    border-color: var(--fc-event-border-color, #00734F) !important;
+    background-color: var(--fc-event-border-color, #00734F) !important;
+}
+
+.lh-cal-card {
+    border-top: 4px solid var(--lh-verde) !important;
+}
+
+.lh-cal-card .card-header {
+    border-bottom: 1px solid var(--lh-cal-border);
+}
+
+.lh-cal-fonte-feriados {
+    font-size: 0.72rem;
+    color: var(--bs-secondary-color);
+}
+
+.lh-cal-fonte-feriados i {
+    color: var(--lh-verde-text, var(--lh-verde));
+}
+
+[data-bs-theme="dark"] .lh-cal-fonte-feriados {
+    color: #94a3b8;
+}
+
+[data-bs-theme="dark"] .lh-cal-fonte-feriados i {
+    color: #86efac;
+}
+
+/* Tipos de evento */
+.apple-event-fixa {
+    --fc-event-bg-color: rgba(66, 27, 113, 0.12);
+    --fc-event-border-color: var(--lh-roxo-text);
+    --fc-event-text-color: var(--lh-roxo-text);
+}
+
+.apple-event-avulsa {
+    --fc-event-bg-color: rgba(240, 115, 60, 0.12);
+    --fc-event-border-color: var(--lh-laranja);
+    --fc-event-text-color: #c95b28;
+}
+
+.apple-event-pendente {
+    --fc-event-bg-color: rgba(180, 83, 9, 0.14);
+    --fc-event-border-color: #b45309;
+    --fc-event-text-color: #78350f;
+}
+
+.apple-event-rejeitado {
+    --fc-event-bg-color: rgba(108, 117, 125, 0.12);
+    --fc-event-border-color: #6c757d;
+    --fc-event-text-color: #495057;
+    opacity: 0.65;
+}
+
+.apple-event-feriado {
+    --fc-event-bg-color: rgba(220, 53, 69, 0.14);
+    --fc-event-border-color: #dc3545;
+    --fc-event-text-color: #a71d2a;
+    font-weight: 700;
+}
+
+.apple-event-facultativo {
+    --fc-event-bg-color: rgba(146, 64, 14, 0.12);
+    --fc-event-border-color: #92400e;
+    --fc-event-text-color: #78350f;
+    font-weight: 600;
+    border-style: dashed !important;
+    border-left-style: solid !important;
+}
+
+[data-bs-theme="dark"] .apple-event-fixa {
+    --fc-event-bg-color: rgba(139, 92, 246, 0.35);
+    --fc-event-border-color: #c4b5fd;
+    --fc-event-text-color: #ede9fe;
+}
+
+[data-bs-theme="dark"] .apple-event-avulsa {
+    --fc-event-bg-color: rgba(251, 146, 60, 0.35);
+    --fc-event-border-color: #fdba74;
+    --fc-event-text-color: #ffedd5;
+}
+
+[data-bs-theme="dark"] .apple-event-pendente {
+    --fc-event-bg-color: rgba(234, 179, 8, 0.28);
+    --fc-event-border-color: #fde047;
+    --fc-event-text-color: #fef9c3;
+}
+
+[data-bs-theme="dark"] .apple-event-rejeitado {
+    --fc-event-bg-color: rgba(108, 117, 125, 0.2);
+    --fc-event-text-color: #adb5bd;
+}
+
+[data-bs-theme="dark"] .apple-event-feriado {
+    --fc-event-bg-color: rgba(248, 113, 113, 0.28);
+    --fc-event-border-color: #f87171;
+    --fc-event-text-color: #fecaca;
+}
+
+[data-bs-theme="dark"] .apple-event-facultativo {
+    --fc-event-bg-color: rgba(250, 204, 21, 0.2);
+    --fc-event-border-color: #facc15;
+    --fc-event-text-color: #fef08a;
+}
+
+.lh-cal-event-time {
+    font-size: 0.65rem;
+    font-weight: 800;
+    opacity: 0.85;
+    margin-bottom: 2px;
+}
+
+.lh-cal-event-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.lh-cal-event-local {
+    font-size: 0.7rem;
+    margin-top: 2px;
+    opacity: 0.9;
+}
+
+.text-truncate-multi {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.text-truncate-single {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+@media (max-width: 767.98px) {
+    .lh-calendar-wrap .fc-daygrid-day-frame {
+        min-height: 72px;
+    }
+
+    .lh-calendar-wrap .fc-toolbar-title {
+        font-size: 1rem !important;
+    }
+}

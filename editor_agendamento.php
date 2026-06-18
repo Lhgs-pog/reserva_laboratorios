@@ -22,6 +22,8 @@ $mensagem = $mensagem ?? '';
 <head>
     <meta charset="UTF-8">
     <title>Editar Reserva - UNICEPLAC</title>
+    <?php require __DIR__ . '/app/Views/partials/favicon.php'; ?>
+    <?php require __DIR__ . '/app/Views/partials/csrf-meta.php'; ?>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root { --azul-uniceplac: #0A2444; --amarelo-uniceplac: #F1A000; }

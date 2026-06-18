@@ -11,6 +11,12 @@
         background: var(--lh-verde);
         color: #fff;
     }
+    #sessao-usuarios .usuarios-table-scroll {
+        max-height: min(620px, calc(100vh - 280px));
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+    }
 </style>
 
 <div id="sessao-usuarios" class="content-section container-fluid px-4 pb-5">
@@ -33,14 +39,14 @@
                 Usuários <span class="lh-badge lh-badge-pendente">Pendente</span> — use o botão verde
                 <i class="bi bi-send-fill"></i> na linha para <strong>reenviar confirmação</strong>.
                 <?php if (empty($mail_configurado)): ?>
-                    <span class="text-warning fw-semibold d-block mt-1">E-mail não configurado — defina RESEND_API_KEY no servidor.</span>
+                    <span class="lh-info-aviso d-block mt-1">E-mail não configurado — defina RESEND_API_KEY no servidor.</span>
                 <?php else: ?>
-                    <span class="text-success fw-semibold d-block mt-1">Provedor: <?= htmlspecialchars($mail_provedor ?? 'Brevo') ?> — confira Spam/Promoções se não chegar em 2 min.</span>
+                    <span class="lh-info-destaque d-block mt-1">Provedor: <?= htmlspecialchars($mail_provedor ?? 'Brevo') ?> — confira Spam/Promoções se não chegar em 2 min.</span>
                 <?php endif; ?>
             </p>
         </div>
         <div class="card-body p-0">
-            <div class="table-responsive" style="max-height:620px;overflow-y:auto;">
+            <div class="table-responsive usuarios-table-scroll">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light sticky-top">
                         <tr>
@@ -71,7 +77,7 @@
                                     <?php elseif ($u['perfil'] === 'professor'): ?>
                                         <span class="lh-badge lh-badge-professor">Professor</span>
                                     <?php else: ?>
-                                        <span class="badge bg-info text-dark">Suporte TI</span>
+                                        <span class="lh-badge lh-badge-suporte">Suporte TI</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -293,14 +299,14 @@
                                 <input class="form-check-input" type="checkbox" name="enviar_confirmacao_email" value="1"
                                     id="novoUserSendConfirm" <?= !empty($mail_configurado) ? 'checked' : 'disabled' ?>>
                                 <label class="form-check-label" for="novoUserSendConfirm">
-                                    Enviar e-mail de confirmação agora
+                                    Enviar e-mail para <strong>confirmar e-mail</strong> (obrigatório antes do login)
                                 </label>
                             </div>
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="checkbox" name="enviar_link_senha" value="1"
-                                    id="novoUserSendLink" <?= !empty($mail_configurado) ? 'checked' : 'disabled' ?>>
+                                    id="novoUserSendLink" <?= !empty($mail_configurado) ? '' : 'disabled' ?>>
                                 <label class="form-check-label" for="novoUserSendLink">
-                                    Enviar link para criar senha (se senha em branco)
+                                    Enviar link para <strong>criar senha</strong> (somente se a senha acima estiver em branco)
                                 </label>
                             </div>
                             <div class="form-check mb-2">
@@ -340,9 +346,22 @@
             sendConfirm.disabled = false;
         }
         if (senha && senha.value.trim() !== '') {
-            if (sendLink) sendLink.checked = false;
+            if (sendLink) {
+                sendLink.checked = false;
+                sendLink.disabled = true;
+            }
+        } else if (sendLink && <?= !empty($mail_configurado) ? 'true' : 'false' ?>) {
+            sendLink.disabled = sendConfirm && sendConfirm.checked;
+            if (sendConfirm && sendConfirm.checked) {
+                sendLink.checked = false;
+            }
+        }
+        if (sendConfirm && sendConfirm.checked && sendLink) {
+            sendLink.checked = false;
+            sendLink.disabled = true;
         }
     }
+    if (sendConfirm) sendConfirm.addEventListener('change', syncNovoUsuarioChecks);
     verif.addEventListener('change', syncNovoUsuarioChecks);
     if (senha) senha.addEventListener('input', syncNovoUsuarioChecks);
     syncNovoUsuarioChecks();

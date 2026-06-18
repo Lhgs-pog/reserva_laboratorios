@@ -66,7 +66,8 @@ class AgendamentoController extends BaseController {
 
             $this->redirectWithSuccess('painel_professor.php', 'Agendamento atualizado com sucesso!');
         } catch (\Exception $e) {
-            $this->redirectWithError('editor_agendamento.php?id=' . $id, 'Erro ao atualizar agendamento: ' . $e->getMessage());
+            error_log('[AgendamentoController] editar: ' . $e->getMessage());
+            $this->redirectWithError('editor_agendamento.php?id=' . $id, 'Erro ao atualizar agendamento. Tente novamente.');
         }
     }
 
@@ -100,9 +101,10 @@ class AgendamentoController extends BaseController {
 
         try {
             $this->agendamentoModel->criarReserva($id_lab, $id_prof, $id_disciplina, $turno, $periodo, $data);
-            $this->redirectWithSuccess('Agendamento.php', 'Agendamento criado com sucesso!');
+            $this->redirectWithSuccess('painel_coordenador.php#sessao-agendar-lab', 'Agendamento criado com sucesso!');
         } catch (\Exception $e) {
-            $this->redirectWithError('Agendamento.php', 'Erro ao criar agendamento: ' . $e->getMessage());
+            error_log('[AgendamentoController] criar: ' . $e->getMessage());
+            $this->redirectWithError('painel_coordenador.php#sessao-agendar-lab', 'Erro ao criar agendamento. Tente novamente.');
         }
     }
 
@@ -118,14 +120,9 @@ class AgendamentoController extends BaseController {
             $this->agendamentoModel->atualizarStatusReserva($id, 'aprovado');
             $this->json(['success' => true, 'message' => 'Agendamento aprovado']);
         } catch (\Exception $e) {
-            $this->json(['success' => false, 'message' => $e->getMessage()], 400);
+            error_log('[AgendamentoController] aprovar: ' . $e->getMessage());
+            $this->json(['success' => false, 'message' => 'Não foi possível aprovar o agendamento.'], 400);
         }
-    }
-
-    /**
-     * Rejeita solicitação de agendamento
-     */
-    public function rejeitar() {
         $this->requirePerfil('coordenador');
 
         $id = $this->getPost('id_agendamento');
@@ -134,14 +131,9 @@ class AgendamentoController extends BaseController {
             $this->agendamentoModel->atualizarStatusReserva($id, 'rejeitado');
             $this->json(['success' => true, 'message' => 'Agendamento rejeitado']);
         } catch (\Exception $e) {
-            $this->json(['success' => false, 'message' => $e->getMessage()], 400);
+            error_log('[AgendamentoController] rejeitar: ' . $e->getMessage());
+            $this->json(['success' => false, 'message' => 'Não foi possível rejeitar o agendamento.'], 400);
         }
-    }
-
-    /**
-     * Exclui agendamento
-     */
-    public function excluir() {
         $this->requireAuth();
 
         $id = $this->getPost('id_agendamento');
@@ -155,7 +147,8 @@ class AgendamentoController extends BaseController {
             $this->agendamentoModel->excluirReserva($id);
             $this->json(['success' => true, 'message' => 'Agendamento excluído']);
         } catch (\Exception $e) {
-            $this->json(['success' => false, 'message' => $e->getMessage()], 400);
+            error_log('[AgendamentoController] excluir: ' . $e->getMessage());
+            $this->json(['success' => false, 'message' => 'Não foi possível excluir o agendamento.'], 400);
         }
     }
 }

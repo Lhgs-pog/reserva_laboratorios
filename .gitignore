@@ -19,8 +19,6 @@ public/uploads/
 .DS_Store
 Thumbs.db
 
-# Backups locais / referência
+# Backups locais
 temp/
-reserva_laboratorios 2/
 *.dmg
-*.pdf

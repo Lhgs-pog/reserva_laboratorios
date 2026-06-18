@@ -324,10 +324,12 @@ class MailService {
             <div style="font-family:Segoe UI,sans-serif;max-width:520px;margin:0 auto;">
                 <h2 style="color:#00734F;">Confirme seu e-mail</h2>
                 <p>Olá, <strong>' . htmlspecialchars($nome) . '</strong>!</p>
-                <p>Clique no botão abaixo para ativar sua conta:</p>
+                <p><strong>Passo 1:</strong> clique no botão abaixo para confirmar seu e-mail.</p>
                 <p><a href="' . htmlspecialchars($link) . '" style="display:inline-block;background:#00734F;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:600;">Confirmar e-mail</a></p>
+                <p><strong>Passo 2:</strong> depois da confirmação, acesse o LabHub e faça login com a senha enviada pela coordenação.</p>
+                <p style="color:#666;font-size:13px;">Se o botão não abrir, copie e cole no navegador:<br><span style="word-break:break-all;">' . htmlspecialchars($link) . '</span></p>
             </div>';
-        $text = "Confirme seu e-mail: {$link}";
+        $text = "Passo 1 — Confirme seu e-mail: {$link}\nPasso 2 — Faça login com sua senha no LabHub.";
 
         return $this->sendMail($email, $nome, 'Confirme seu e-mail — LabHub UNICEPLAC', $html, $text);
     }
@@ -346,5 +348,73 @@ class MailService {
         $text = "Senha temporária: {$senhaTemp}. Acesse: {$link}";
 
         return $this->sendMail($email, $nome, 'Nova senha temporária — LabHub UNICEPLAC', $html, $text);
+    }
+
+    public function enviarAtualizacaoChamadoSos(
+        string $email,
+        string $nome,
+        array $chamado,
+        string $statusLabel,
+        string $respostaProfessor
+    ): bool {
+        $lab = htmlspecialchars($chamado['laboratorio'] ?? '');
+        $problema = nl2br(htmlspecialchars($chamado['mensagem'] ?? ''));
+        $resposta = nl2br(htmlspecialchars(trim($respostaProfessor)));
+        $statusHtml = htmlspecialchars($statusLabel);
+        $link = htmlspecialchars($this->baseUrl() . '/painel_professor.php#sessao-chamados-ti');
+
+        $html = '
+            <div style="font-family:Segoe UI,sans-serif;max-width:560px;margin:0 auto;">
+                <h2 style="color:#F0733C;">Atualização do seu chamado — Suporte TI</h2>
+                <p>Olá, <strong>' . htmlspecialchars($nome) . '</strong>!</p>
+                <p>Há uma nova atualização sobre o chamado aberto no laboratório <strong>' . $lab . '</strong>.</p>
+                <p style="margin:16px 0;"><span style="display:inline-block;background:#00734F;color:#fff;padding:6px 14px;border-radius:20px;font-size:14px;">Status: ' . $statusHtml . '</span></p>
+                <div style="background:#f8f9fa;border-left:4px solid #F0733C;padding:14px;border-radius:6px;margin:16px 0;">
+                    <p style="margin:0 0 8px;font-size:13px;color:#666;"><strong>Problema relatado:</strong></p>
+                    <p style="margin:0;">' . $problema . '</p>
+                </div>
+                <div style="background:#eef6ff;border-left:4px solid #2563eb;padding:14px;border-radius:6px;margin:16px 0;">
+                    <p style="margin:0 0 8px;font-size:13px;color:#666;"><strong>Resposta do Suporte TI:</strong></p>
+                    <p style="margin:0;">' . ($resposta !== '' ? $resposta : '<em>Status atualizado. Em breve entraremos em contato.</em>') . '</p>
+                </div>
+                <p><a href="' . $link . '" style="display:inline-block;background:#00734F;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:600;">Ver meus chamados no LabHub</a></p>
+                <p style="color:#666;font-size:13px;">Você também pode acompanhar pelo painel do professor, aba <strong>Chamados ao TI</strong>.</p>
+            </div>';
+        $text = "Chamado TI — {$lab}\nStatus: {$statusLabel}\n\nResposta:\n" . trim($respostaProfessor) . "\n\nAcesse: {$link}";
+
+        return $this->sendMail($email, $nome, 'Chamado TI — ' . $statusLabel . ' — LabHub UNICEPLAC', $html, $text);
+    }
+
+    public function enviarListaEsperaLaboratorio(string $email, string $nome, array $dados): bool
+    {
+        require_once __DIR__ . '/../Config/horario_helpers.php';
+
+        $dataFmt = !empty($dados['data_reserva'])
+            ? date('d/m/Y', strtotime($dados['data_reserva']))
+            : '';
+        $turno = (string) ($dados['turno'] ?? '');
+        $periodo = (string) ($dados['periodo'] ?? '');
+        $horario = labhub_horario_label($turno, $periodo);
+        $disciplina = htmlspecialchars((string) ($dados['disciplina'] ?? ''));
+        $posicao = (int) ($dados['posicao'] ?? 1);
+        $link = htmlspecialchars($this->baseUrl() . '/painel_professor.php#sessao-historico');
+
+        $html = '
+            <div style="font-family:Segoe UI,sans-serif;max-width:560px;margin:0 auto;">
+                <h2 style="color:#00734F;">Lista de espera — Laboratório</h2>
+                <p>Olá, <strong>' . htmlspecialchars($nome) . '</strong>!</p>
+                <p>Todos os laboratórios estavam ocupados no horário solicitado. Você foi incluído na <strong>lista de espera</strong>.</p>
+                <div style="background:#f0fdf4;border-left:4px solid #00734F;padding:14px;border-radius:6px;margin:16px 0;">
+                    <p style="margin:0 0 6px;"><strong>Data:</strong> ' . htmlspecialchars($dataFmt) . '</p>
+                    <p style="margin:0 0 6px;"><strong>Horário:</strong> ' . htmlspecialchars($horario) . '</p>
+                    <p style="margin:0 0 6px;"><strong>Disciplina:</strong> ' . $disciplina . '</p>
+                    <p style="margin:0;"><strong>Sua posição na fila:</strong> ' . $posicao . 'º</p>
+                </div>
+                <p>Quando houver liberação, a coordenação será avisada e você receberá atualização na plataforma.</p>
+                <p><a href="' . $link . '" style="display:inline-block;background:#00734F;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:600;">Ver histórico no LabHub</a></p>
+            </div>';
+        $text = "Lista de espera — {$dataFmt} ({$horario})\nDisciplina: {$dados['disciplina']}\nPosição: {$posicao}º\nAcesse: {$this->baseUrl()}/painel_professor.php#sessao-historico";
+
+        return $this->sendMail($email, $nome, 'Lista de espera — laboratório — LabHub UNICEPLAC', $html, $text);
     }
 }

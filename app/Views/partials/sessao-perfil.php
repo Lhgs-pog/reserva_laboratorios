@@ -5,9 +5,9 @@ $perfil_label = match ($_SESSION['perfil'] ?? '') {
     default       => 'Professor',
 };
 $perfil_badge_class = match ($_SESSION['perfil'] ?? '') {
-    'coordenador' => 'bg-uniceplac',
-    'suporte'     => 'bg-uniceplac',
-    default       => 'bg-uniceplac',
+    'coordenador' => 'lh-badge lh-badge-coordenador',
+    'suporte'     => 'lh-badge lh-badge-suporte',
+    default       => 'lh-badge lh-badge-professor',
 };
 ?>
 <div id="sessao-perfil" class="content-section container-fluid px-4 pb-5">

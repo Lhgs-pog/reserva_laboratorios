@@ -12,4 +12,4 @@ window.LABHUB_CATALOG = <?= json_encode($labhub_catalog, JSON_UNESCAPED_UNICODE 
 window.LABHUB_CAN_CREATE = <?= $labhub_can_create ? 'true' : 'false' ?>;
 window.LABHUB_API_CADASTROS = 'api_cadastros.php';
 </script>
-<script src="js/labhub-combobox.js"></script>
+<script src="js/labhub-combobox.js?v=2026061822"></script>

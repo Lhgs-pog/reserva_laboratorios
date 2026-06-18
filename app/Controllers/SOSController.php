@@ -11,11 +11,24 @@ class SOSController extends BaseController {
         $this->requireAuth();
     }
 
+    private function requireSuporteOuCoordenador(): void {
+        $perfil = $_SESSION['perfil'] ?? '';
+        if (!in_array($perfil, ['suporte', 'coordenador'], true)) {
+            $this->json([
+                'qtd'          => 0,
+                'qtd_suporte'  => 0,
+                'html_suporte' => '',
+                'error'        => 'acesso_negado',
+            ], 403);
+        }
+    }
+
     /**
      * Conta chamados pendentes — endpoint check_sos.php
      * Retorna: {"qtd": N}
      */
     public function contarPendentes() {
+        $this->requireSuporteOuCoordenador();
         try {
             $total = $this->sosModel->contarPendentes();
             $this->json(['qtd' => $total]);
@@ -29,6 +42,7 @@ class SOSController extends BaseController {
      * Retorna: {"qtd_suporte": N, "html_suporte": "..."}
      */
     public function listarStatus() {
+        $this->requireSuporteOuCoordenador();
         try {
             $dados = $this->sosModel->listarStatus();
             $this->json($dados);
@@ -63,7 +77,8 @@ class SOSController extends BaseController {
                 );
                 $this->redirectWithSuccess('painel_professor.php', 'Chamado criado com sucesso!');
             } catch (\Exception $e) {
-                $this->redirectWithError('painel_professor.php', 'Erro ao criar chamado: ' . $e->getMessage());
+                error_log('[SOSController] criar: ' . $e->getMessage());
+                $this->redirectWithError('painel_professor.php', 'Erro ao criar chamado. Tente novamente.');
             }
         }
     }
@@ -81,7 +96,8 @@ class SOSController extends BaseController {
             $this->sosModel->atualizarStatus($id, $status);
             $this->json(['success' => true, 'message' => 'Status atualizado']);
         } catch (\Exception $e) {
-            $this->json(['success' => false, 'message' => $e->getMessage()], 400);
+            error_log('[SOSController] atualizarStatus: ' . $e->getMessage());
+            $this->json(['success' => false, 'message' => 'Não foi possível atualizar o status.'], 400);
         }
     }
 }

@@ -61,6 +61,20 @@ function app_is_fast_panel(): bool
     return $v === '1' || strtolower($v) === 'true' || strtolower($v) === 'yes';
 }
 
+/** URL pública base (Fly.io, local, etc.) — usada em og:image para WhatsApp. */
+function app_base_url(): string
+{
+    $fromEnv = trim((string) app_env('APP_URL', ''));
+    if ($fromEnv !== '') {
+        return rtrim($fromEnv, '/');
+    }
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    $scheme = $https ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    return $scheme . '://' . $host;
+}
+
 /** Intervalo de datas SQL (MySQL / PostgreSQL). */
 function app_sql_date_between(string $column, int $daysBefore, int $daysAfter): string
 {
@@ -72,5 +86,8 @@ function app_sql_date_between(string $column, int $daysBefore, int $daysAfter): 
 
 function app_boot_database(): void
 {
-    \App\Config\Database::getInstance();
+    $pdo = \App\Config\Database::getInstance()->getPDO();
+    require_once __DIR__ . '/sos_schema.php';
+    require_once __DIR__ . '/sos_helpers.php';
+    app_ensure_sos_schema($pdo);
 }

@@ -38,6 +38,11 @@ if ! fly volumes list -a "${APP_NAME}" 2>/dev/null | grep -q labhub_uploads; the
   fly volumes create labhub_uploads --size 1 --region "${REGION}" -a "${APP_NAME}" --yes
 fi
 
+echo "→ IPv4 compartilhado (acesso sem IPv6 — redes comuns no Brasil)..."
+if ! fly ips list -a "${APP_NAME}" 2>/dev/null | grep -q 'shared'; then
+  fly ips allocate-v4 --shared -a "${APP_NAME}" || true
+fi
+
 if [[ -z "${DB_PASSWORD:-}" ]]; then
   echo "Erro: export DB_PASSWORD=senha_supabase antes de continuar."
   exit 1
@@ -47,6 +52,9 @@ echo "→ Definindo secrets..."
 SECRETS=(
   "DB_PASSWORD=${DB_PASSWORD}"
 )
+if [[ -n "${RESEND_API_KEY:-}" ]]; then
+  SECRETS+=("RESEND_API_KEY=${RESEND_API_KEY}")
+fi
 if [[ -n "${BREVO_API_KEY:-}" ]]; then
   SECRETS+=("BREVO_API_KEY=${BREVO_API_KEY}")
 fi

@@ -68,9 +68,8 @@ class Database {
             app_apply_db_timezone($this->pdo, $driver);
 
         } catch (PDOException $e) {
-
-            die("Erro ao conectar com o banco de dados via PDO: " . $e->getMessage());
-
+            error_log('[Database] conexão PDO: ' . $e->getMessage());
+            die('Erro ao conectar com o banco de dados. Verifique a configuração ou tente novamente mais tarde.');
         }
 
 

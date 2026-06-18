@@ -1,4 +1,3 @@
 <?php
-// Redirecionamento MVC. Arquivo legado substituído.
-require __DIR__ . '/app/router.php';
-?>
+require __DIR__ . '/bootstrap.php';
+labhub_dispatch();

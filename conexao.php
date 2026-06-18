@@ -42,9 +42,12 @@ try {
 
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+    require_once __DIR__ . '/app/Config/sos_schema.php';
+    require_once __DIR__ . '/app/Config/sos_helpers.php';
+    app_ensure_sos_schema($pdo);
+
 } catch (PDOException $e) {
-
-    die("Erro ao conectar com o banco de dados: " . $e->getMessage());
-
+    error_log('[conexao.php] PDO: ' . $e->getMessage());
+    die('Erro ao conectar com o banco de dados. Verifique a configuração ou tente novamente mais tarde.');
 }
 

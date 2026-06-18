@@ -101,13 +101,13 @@
             <div class="col-md-4">
                 <div class="card shadow-sm border-0" style="border-top: 4px solid #0dcaf0;">
                     <div class="card-header bg-white py-3">
-                        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-door-open text-info me-2"></i> Salas</h5>
+                        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-door-open text-uniceplac me-2"></i> Salas</h5>
                     </div>
                     <div class="card-body bg-light">
                         <form method="POST" action="painel_coordenador.php#sessao-locais" class="d-flex mb-3"><input
                                 type="text" name="nome_sala" class="form-control me-2" required
                                 placeholder="Nova sala..."><button type="submit" name="salvar_sala"
-                                class="btn btn-info text-white"><i class="bi bi-plus-lg"></i></button></form>
+                                class="btn btn-uniceplac"><i class="bi bi-plus-lg"></i></button></form>
                         <ul class="list-group" style="max-height: 250px; overflow-y: auto;">
                             <?php foreach ($salas_cadastradas as $s): ?>
                                 <li class="list-group-item d-flex justify-content-between align-items-center"><span
@@ -136,7 +136,7 @@
                                                         type="text" name="nome_sala" class="form-control mb-3"
                                                         value="<?= htmlspecialchars($s['nome']) ?>" required><button
                                                         type="submit" name="editar_sala"
-                                                        class="btn btn-info text-white w-100">Atualizar</button></form>
+                                                        class="btn btn-uniceplac w-100">Atualizar</button></form>
                                             </div>
                                         </div>
                                     </div>
