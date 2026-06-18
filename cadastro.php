@@ -74,7 +74,7 @@ if (is_array($controller_data)) {
                     <label class="form-label-nitido">Senha</label>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                        <input type="password" name="senha" id="senha" class="form-control" required placeholder="Mínimo 8 caracteres">
+                        <input type="password" name="senha" id="senha" class="form-control" required minlength="6" placeholder="Mínimo 6 caracteres">
                         <span class="input-group-text bg-white password-toggle" onclick="togglePassword('senha', 'iconSenha')">
                             <i class="bi bi-eye-slash" id="iconSenha"></i>
                         </span>
@@ -85,14 +85,14 @@ if (is_array($controller_data)) {
                     <label class="form-label-nitido">Confirmar Senha</label>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-                        <input type="password" name="confirmar_senha" id="confirmar_senha" class="form-control" required placeholder="••••••••">
+                        <input type="password" name="confirmar_senha" id="confirmar_senha" class="form-control" required minlength="6" placeholder="Repita a senha">
                         <span class="input-group-text bg-white password-toggle" onclick="togglePassword('confirmar_senha', 'iconConfirmarSenha')">
                             <i class="bi bi-eye-slash" id="iconConfirmarSenha"></i>
                         </span>
                     </div>
                 </div>
 
-                <button type="submit" name="cadastrar_banco" class="btn btn-uniceplac w-100 py-2 mb-2">
+                <button type="submit" id="btnCadastrar" class="btn btn-uniceplac w-100 py-2 mb-2">
                     <i class="bi bi-person-plus-fill me-2"></i>Finalizar Cadastro
                 </button>
 
@@ -127,6 +127,14 @@ if (is_array($controller_data)) {
             icon.classList.replace('bi-eye', 'bi-eye-slash');
         }
     }
+
+    document.getElementById('formCadastro')?.addEventListener('submit', function () {
+        const btn = document.getElementById('btnCadastrar');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Cadastrando...';
+        }
+    });
 </script>
 
 </body>

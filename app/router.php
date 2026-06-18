@@ -91,7 +91,7 @@ function executeRouter() {
 
     require_once __DIR__ . '/Config/env.php';
     require_once __DIR__ . '/Config/foto_helpers.php';
-    if ($action !== 'login' || ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+    if (!in_array($action, ['login', 'cadastro'], true) || ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
         app_boot_database();
     }
 

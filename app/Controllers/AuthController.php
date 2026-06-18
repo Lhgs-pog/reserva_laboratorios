@@ -2,6 +2,7 @@
 namespace App\Controllers;
 
 use App\Models\User;
+use App\Services\UsuarioService;
 use Google\Client as GoogleClient;
 use Google\Service\Oauth2 as GoogleOauth2;
 use GuzzleHttp\Client as GuzzleClient;
@@ -120,32 +121,15 @@ class AuthController extends BaseController {
         } elseif (strlen($senha) < 6) {
             $mensagem = '<div class="alert alert-danger"><i class="bi bi-shield-x me-2"></i>A senha deve ter pelo menos 6 caracteres.</div>';
         } else {
-            // Eloquent: verifica duplicidade
-            if (User::where('email', $email)->exists()) {
-                $mensagem = '<div class="alert alert-danger"><i class="bi bi-person-x-fill me-2"></i>E-mail já cadastrado. Tente recuperar a senha.</div>';
-            } else {
-                // Eloquent: Mass Assignment (criação direta)
-                // [DESABILITADO] Geração de token de verificação — não é essencial por enquanto.
-                // Reativar junto com o envio de e-mail quando o SMTP estiver configurado.
-                // $token = bin2hex(random_bytes(32));
-
-                $user = User::create([
-                    'nome'             => $nome,
-                    'email'            => $email,
-                    'senha'            => password_hash($senha, PASSWORD_DEFAULT),
-                    'perfil'           => 'professor',
-                    'email_verificado' => 1, // Conta já ativa — verificação de e-mail desabilitada por enquanto
-                    // 'token_verificacao' => $token, // Reativar com o fluxo de e-mail
-                ]);
-
-                if ($user) {
-                    // [DESABILITADO] Envio de e-mail de verificação — não é essencial por enquanto.
-                    // Reativar quando o SMTP estiver configurado em produção.
-                    // $this->enviarEmailVerificacao($email, $nome, $token);
-                    $this->redirect('index.php?msg=cadastro_ok');
-                } else {
-                    $mensagem = '<div class="alert alert-danger"><i class="bi bi-x-circle-fill me-2"></i>Erro ao cadastrar usuário.</div>';
-                }
+            try {
+                $usuarioSvc = new UsuarioService();
+                $usuarioSvc->criar($nome, $email, 'professor', $senha, 1);
+                $this->redirect('index.php?msg=cadastro_ok');
+            } catch (\InvalidArgumentException $e) {
+                $mensagem = '<div class="alert alert-danger"><i class="bi bi-person-x-fill me-2"></i>' . htmlspecialchars($e->getMessage()) . '</div>';
+            } catch (\Throwable $e) {
+                error_log('[AuthController] cadastro: ' . $e->getMessage());
+                $mensagem = '<div class="alert alert-danger"><i class="bi bi-x-circle-fill me-2"></i>Erro ao cadastrar. Tente novamente ou contate a coordenação.</div>';
             }
         }
         return compact('mensagem');

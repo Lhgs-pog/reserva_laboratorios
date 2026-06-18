@@ -152,12 +152,12 @@ if (is_array($controller_data)) {
                     </div>
 
                     <button type="submit" id="btnAcessar" class="btn btn-uniceplac w-100 py-2">Acessar Sistema</button>
-
-                    <div class="text-center mt-4 pt-2">
-                        <p class="mb-1 text-muted" style="font-size: 0.85em;">Ainda não possui acesso?</p>
-                        <a href="cadastro.php" class="text-decoration-none fw-bold small" style="color: var(--amarelo-uniceplac);">Solicitar Cadastro</a>
-                    </div>
                 </form>
+
+                <div class="text-center mt-4 pt-2 border-top">
+                    <p class="mb-2 text-muted small">Ainda não possui acesso?</p>
+                    <a href="cadastro.php" class="btn btn-outline-secondary w-100 fw-bold">Solicitar Cadastro</a>
+                </div>
             </div>
         </div>
     </main>
