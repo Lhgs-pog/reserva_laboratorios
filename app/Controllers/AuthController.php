@@ -112,7 +112,9 @@ class AuthController extends BaseController {
                 $user = $usuarioSvc->buscarPorEmail($email);
                 if ($user && $mailSvc->isConfigured()) {
                     $token = $usuarioSvc->gerarTokenRedefinicao((int) $user['id']);
-                    $mailSvc->enviarRedefinicaoSenha($user['email'], $user['nome'], $token);
+                    if (!$mailSvc->enviarRedefinicaoSenha($user['email'], $user['nome'], $token)) {
+                        error_log('[AuthController] esqueciSenha falhou: ' . ($mailSvc->lastError() ?: 'sem detalhe'));
+                    }
                 }
                 // Mesma mensagem sempre — não revela se o e-mail existe
                 $mensagem = 'Se o e-mail estiver cadastrado, enviamos um link para redefinir a senha. Verifique também o spam.';

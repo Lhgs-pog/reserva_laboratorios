@@ -2,6 +2,12 @@
 namespace App\Services;
 
 class MailService {
+    private ?string $lastError = null;
+
+    public function lastError(): ?string {
+        return $this->lastError;
+    }
+
     private function brevoApiKey(): ?string {
         $apiKey = app_env('BREVO_API_KEY', '');
         if ($apiKey !== '' && str_starts_with($apiKey, 'xkeysib-')) {
@@ -38,12 +44,13 @@ class MailService {
     }
 
     private function sender(): array {
-        $from = app_env('MAIL_FROM_ADDRESS', app_env('MAIL_USERNAME', 'noreply@uniceplac.edu.br'));
+        $from = app_env('MAIL_FROM_ADDRESS', app_env('MAIL_USERNAME', 'contatovinicius.mends@gmail.com'));
         $name = app_env('MAIL_FROM_NAME', 'LabHub UNICEPLAC');
         return ['email' => $from, 'name' => $name];
     }
 
     private function sendViaBrevoApi(string $toEmail, string $toName, string $subject, string $htmlBody, string $textBody): bool {
+        $this->lastError = null;
         $apiKey = $this->brevoApiKey();
         if ($apiKey === null) {
             return false;
@@ -80,10 +87,12 @@ class MailService {
             $hint = str_contains((string) $response, 'unrecognised IP') || str_contains((string) $response, 'Unauthorized IP')
                 ? ' ' . $this->brevoWhitelistHint()
                 : '';
-            error_log('[MailService] brevo_api: HTTP ' . $httpCode . ' ' . ($error ?: (string) $response) . $hint);
+            $this->lastError = 'Brevo API HTTP ' . $httpCode . ': ' . ($error ?: trim((string) $response)) . $hint;
+            error_log('[MailService] brevo_api: ' . $this->lastError);
             return false;
         }
 
+        error_log('[MailService] brevo_api: enviado para ' . $toEmail . ' HTTP ' . $httpCode);
         return true;
     }
 
@@ -113,11 +122,15 @@ class MailService {
     }
 
     private function sendMail(string $toEmail, string $toName, string $subject, string $htmlBody, string $textBody): bool {
+        $this->lastError = null;
         if ($this->brevoApiKey() !== null && $this->sendViaBrevoApi($toEmail, $toName, $subject, $htmlBody, $textBody)) {
             return true;
         }
 
         if ($this->smtpPassword() === '' || !str_starts_with($this->smtpPassword(), 'xsmtpsib-')) {
+            if ($this->lastError === null) {
+                $this->lastError = 'Brevo não configurado (BREVO_API_KEY xkeysib- ou MAIL_SMTP_PASSWORD xsmtpsib-).';
+            }
             return false;
         }
         try {
@@ -128,13 +141,15 @@ class MailService {
             $mail->Body    = $htmlBody;
             $mail->AltBody = $textBody;
             $mail->send();
+            error_log('[MailService] smtp: enviado para ' . $toEmail);
             return true;
         } catch (\Throwable $e) {
             $msg = $e->getMessage();
             if (str_contains($msg, 'Unauthorized IP') || str_contains($msg, '525')) {
                 $msg .= ' — ' . $this->brevoWhitelistHint();
             }
-            error_log('[MailService] smtp: ' . $msg);
+            $this->lastError = 'SMTP: ' . $msg;
+            error_log('[MailService] smtp: ' . $this->lastError);
             return false;
         }
     }

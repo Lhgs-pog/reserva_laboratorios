@@ -213,7 +213,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $token = $usuarioSvc->gerarTokenRedefinicao($id);
             if (!$mailSvc->enviarRedefinicaoSenha($user['email'], $user['nome'], $token)) {
-                throw new \RuntimeException('Falha ao enviar e-mail. Na Brevo, autorize o IP fixo do servidor: ' . $mailSvc->brevoWhitelistHint());
+                $detail = $mailSvc->lastError() ?: 'Erro desconhecido';
+                throw new \RuntimeException('Falha ao enviar e-mail. ' . $detail);
             }
             $flashUsuarios = '<div class="alert alert-primary alert-autohide mb-4"><i class="bi bi-envelope me-2"></i>Link de redefinição enviado para ' . htmlspecialchars($user['email']) . '.</div>';
         } elseif (isset($_POST['admin_enviar_verificacao'])) {
@@ -227,7 +228,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $token = $usuarioSvc->gerarTokenVerificacao($id);
             if (!$mailSvc->enviarVerificacaoEmail($user['email'], $user['nome'], $token)) {
-                throw new \RuntimeException('Falha ao enviar e-mail de verificação.');
+                $detail = $mailSvc->lastError() ?: 'Erro desconhecido';
+                throw new \RuntimeException('Falha ao enviar e-mail de verificação. ' . $detail);
             }
             $flashUsuarios = '<div class="alert alert-success alert-autohide mb-4"><i class="bi bi-envelope-check me-2"></i>E-mail de confirmação enviado.</div>';
         }
