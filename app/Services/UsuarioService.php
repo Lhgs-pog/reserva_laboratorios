@@ -59,7 +59,12 @@ class UsuarioService {
         $stmt = $this->pdo->prepare(
             'INSERT INTO usuarios (nome, email, senha, perfil, email_verificado) VALUES (?, ?, ?, ?, ?) RETURNING id'
         );
-        $stmt->execute([trim($nome), trim($email), $hash, $perfil, (bool) $emailVerificado]);
+        $stmt->bindValue(1, trim($nome));
+        $stmt->bindValue(2, trim($email));
+        $stmt->bindValue(3, $hash);
+        $stmt->bindValue(4, $perfil);
+        $stmt->bindValue(5, (bool) $emailVerificado, PDO::PARAM_BOOL);
+        $stmt->execute();
         return (int) $stmt->fetchColumn();
     }
 
@@ -80,7 +85,12 @@ class UsuarioService {
         $stmt = $this->pdo->prepare(
             'UPDATE usuarios SET nome = ?, email = ?, perfil = ?, email_verificado = ? WHERE id = ?'
         );
-        $stmt->execute([trim($nome), trim($email), $perfil, (bool) $emailVerificado, $id]);
+        $stmt->bindValue(1, trim($nome));
+        $stmt->bindValue(2, trim($email));
+        $stmt->bindValue(3, $perfil);
+        $stmt->bindValue(4, (bool) $emailVerificado, PDO::PARAM_BOOL);
+        $stmt->bindValue(5, $id, PDO::PARAM_INT);
+        $stmt->execute();
     }
 
     public function definirSenha(int $id, string $senha): void {
@@ -105,8 +115,8 @@ class UsuarioService {
     public function gerarTokenVerificacao(int $id): string {
         $token = bin2hex(random_bytes(32));
         $this->pdo->prepare(
-            'UPDATE usuarios SET token_verificacao = ?, token_expira_em = NULL, email_verificado = ? WHERE id = ?'
-        )->execute([$token, false, $id]);
+            'UPDATE usuarios SET token_verificacao = ?, token_expira_em = NULL, email_verificado = FALSE WHERE id = ?'
+        )->execute([$token, $id]);
         return $token;
     }
 
@@ -121,8 +131,8 @@ class UsuarioService {
 
     public function confirmarEmail(int $id): void {
         $this->pdo->prepare(
-            'UPDATE usuarios SET email_verificado = ?, token_verificacao = NULL, token_expira_em = NULL WHERE id = ?'
-        )->execute([true, $id]);
+            'UPDATE usuarios SET email_verificado = TRUE, token_verificacao = NULL, token_expira_em = NULL WHERE id = ?'
+        )->execute([$id]);
     }
 
     public function buscarPorTokenRedefinicao(string $token): ?array {
