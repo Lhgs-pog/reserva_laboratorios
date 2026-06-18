@@ -213,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $token = $usuarioSvc->gerarTokenRedefinicao($id);
             if (!$mailSvc->enviarRedefinicaoSenha($user['email'], $user['nome'], $token)) {
-                throw new \RuntimeException('Falha ao enviar e-mail. Verifique as credenciais SMTP.');
+                throw new \RuntimeException('Falha ao enviar e-mail. Na Brevo, autorize o IP fixo do servidor: ' . $mailSvc->brevoWhitelistHint());
             }
             $flashUsuarios = '<div class="alert alert-primary alert-autohide mb-4"><i class="bi bi-envelope me-2"></i>Link de redefinição enviado para ' . htmlspecialchars($user['email']) . '.</div>';
         } elseif (isset($_POST['admin_enviar_verificacao'])) {

@@ -21,6 +21,8 @@ primary_region = 'gru'
   MAIL_USERNAME = 'ae8949001@smtp-brevo.com'
   MAIL_FROM_ADDRESS = 'admin@uniceplac.edu.br'
   MAIL_FROM_NAME = 'LabHub UNICEPLAC'
+  BREVO_EGRESS_IPV4 = '209.71.94.3'
+  BREVO_EGRESS_IPV6 = '2a09:8280:e615:1:0:12d:4245:0'
 
 [http_service]
   internal_port = 8080

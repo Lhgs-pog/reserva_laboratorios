@@ -47,7 +47,14 @@ echo "→ Definindo secrets..."
 SECRETS=(
   "DB_PASSWORD=${DB_PASSWORD}"
 )
-if [[ -n "${MAIL_PASSWORD:-}" ]]; then
+if [[ -n "${BREVO_API_KEY:-}" ]]; then
+  SECRETS+=("BREVO_API_KEY=${BREVO_API_KEY}")
+fi
+if [[ -n "${MAIL_SMTP_PASSWORD:-}" ]]; then
+  SECRETS+=("MAIL_SMTP_PASSWORD=${MAIL_SMTP_PASSWORD}")
+elif [[ -n "${MAIL_PASSWORD:-}" && "${MAIL_PASSWORD}" == xsmtpsib-* ]]; then
+  SECRETS+=("MAIL_SMTP_PASSWORD=${MAIL_PASSWORD}")
+elif [[ -n "${MAIL_PASSWORD:-}" && "${MAIL_PASSWORD}" != xkeysib-* ]]; then
   SECRETS+=("MAIL_PASSWORD=${MAIL_PASSWORD}")
 fi
 if [[ -n "${GOOGLE_CLIENT_ID:-}" ]]; then
@@ -57,6 +64,9 @@ if [[ -n "${GOOGLE_CLIENT_ID:-}" ]]; then
 fi
 
 fly secrets set "${SECRETS[@]}" -a "${APP_NAME}"
+
+echo "→ IP fixo Brevo (egress)..."
+"$(dirname "$0")/fly-brevo-setup.sh" || true
 
 echo "→ Deploy..."
 fly deploy --remote-only -a "${APP_NAME}"

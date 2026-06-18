@@ -34,6 +34,12 @@ if [[ -z "${DB_PASSWORD}" ]]; then
   exit 1
 fi
 
-export DB_PASSWORD MAIL_PASSWORD
-echo "→ Secrets obtidos do Render (DB_PASSWORD + MAIL_PASSWORD)"
+export DB_PASSWORD
+if [[ "${MAIL_PASSWORD}" == xkeysib-* ]]; then
+  export BREVO_API_KEY="${MAIL_PASSWORD}"
+  echo "→ Secrets: DB_PASSWORD + BREVO_API_KEY (xkeysib do Render)"
+else
+  export MAIL_PASSWORD
+  echo "→ Secrets: DB_PASSWORD + MAIL_PASSWORD"
+fi
 exec "$(dirname "$0")/fly-deploy.sh"

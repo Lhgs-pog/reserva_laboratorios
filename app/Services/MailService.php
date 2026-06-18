@@ -3,12 +3,38 @@ namespace App\Services;
 
 class MailService {
     private function brevoApiKey(): ?string {
+        $apiKey = app_env('BREVO_API_KEY', '');
+        if ($apiKey !== '' && str_starts_with($apiKey, 'xkeysib-')) {
+            return $apiKey;
+        }
         $key = app_env('MAIL_PASSWORD', '');
         if ($key !== '' && str_starts_with($key, 'xkeysib-')) {
             return $key;
         }
-        $apiKey = app_env('BREVO_API_KEY', '');
-        return ($apiKey !== '' && str_starts_with($apiKey, 'xkeysib-')) ? $apiKey : null;
+        return null;
+    }
+
+    private function smtpPassword(): string {
+        $smtp = app_env('MAIL_SMTP_PASSWORD', '');
+        if ($smtp !== '') {
+            return $smtp;
+        }
+        $pass = app_env('MAIL_PASSWORD', '');
+        if (str_starts_with($pass, 'xsmtpsib-')) {
+            return $pass;
+        }
+        return $pass;
+    }
+
+    public function brevoWhitelistHint(): string {
+        $v4 = app_env('BREVO_EGRESS_IPV4', '');
+        $v6 = app_env('BREVO_EGRESS_IPV6', '');
+        $base = 'https://app.brevo.com/security/authorised_ips';
+        if ($v4 === '' && $v6 === '') {
+            return $base;
+        }
+        $ips = array_filter([$v4, $v6]);
+        return $base . ' — autorize: ' . implode(' e ', $ips);
     }
 
     private function sender(): array {
@@ -37,6 +63,7 @@ class MailService {
             CURLOPT_POSTFIELDS     => $payload,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => 30,
+            CURLOPT_IPRESOLVE      => CURL_IPRESOLVE_V4,
             CURLOPT_HTTPHEADER     => [
                 'accept: application/json',
                 'content-type: application/json',
@@ -51,7 +78,7 @@ class MailService {
 
         if ($response === false || $httpCode < 200 || $httpCode >= 300) {
             $hint = str_contains((string) $response, 'unrecognised IP') || str_contains((string) $response, 'Unauthorized IP')
-                ? ' Autorize o IP do servidor em https://app.brevo.com/security/authorised_ips'
+                ? ' ' . $this->brevoWhitelistHint()
                 : '';
             error_log('[MailService] brevo_api: HTTP ' . $httpCode . ' ' . ($error ?: (string) $response) . $hint);
             return false;
@@ -68,10 +95,12 @@ class MailService {
 
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
         $mail->isSMTP();
-        $mail->Host       = app_env('MAIL_HOST', 'smtp.gmail.com');
+        $host = app_env('MAIL_HOST', 'smtp.gmail.com');
+        $resolved = @gethostbyname($host);
+        $mail->Host       = ($resolved !== $host) ? $resolved : $host;
         $mail->SMTPAuth   = true;
         $mail->Username   = app_env('MAIL_USERNAME', '');
-        $mail->Password   = app_env('MAIL_PASSWORD', '');
+        $mail->Password   = $this->smtpPassword();
         $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = (int) app_env('MAIL_PORT', '587');
         $mail->CharSet    = 'UTF-8';
@@ -84,10 +113,13 @@ class MailService {
     }
 
     private function sendMail(string $toEmail, string $toName, string $subject, string $htmlBody, string $textBody): bool {
-        if ($this->brevoApiKey() !== null) {
-            return $this->sendViaBrevoApi($toEmail, $toName, $subject, $htmlBody, $textBody);
+        if ($this->brevoApiKey() !== null && $this->sendViaBrevoApi($toEmail, $toName, $subject, $htmlBody, $textBody)) {
+            return true;
         }
 
+        if ($this->smtpPassword() === '' || !str_starts_with($this->smtpPassword(), 'xsmtpsib-')) {
+            return false;
+        }
         try {
             $mail = $this->createMailer();
             $mail->addAddress($toEmail, $toName);
@@ -100,7 +132,7 @@ class MailService {
         } catch (\Throwable $e) {
             $msg = $e->getMessage();
             if (str_contains($msg, 'Unauthorized IP') || str_contains($msg, '525')) {
-                $msg .= ' — autorize o IP em https://app.brevo.com/security/authorised_ips';
+                $msg .= ' — ' . $this->brevoWhitelistHint();
             }
             error_log('[MailService] smtp: ' . $msg);
             return false;
@@ -108,11 +140,12 @@ class MailService {
     }
 
     public function isConfigured(): bool {
-        if ($this->brevoApiKey() !== null) {
-            return app_env('MAIL_FROM_ADDRESS') !== null && app_env('MAIL_FROM_ADDRESS') !== '';
+        $fromOk = app_env('MAIL_FROM_ADDRESS') !== null && app_env('MAIL_FROM_ADDRESS') !== '';
+        if (!$fromOk) {
+            return false;
         }
-        return (app_env('MAIL_USERNAME') !== null && app_env('MAIL_USERNAME') !== '')
-            || (app_env('MAIL_HOST') !== null && app_env('MAIL_HOST') !== 'smtp.gmail.com');
+        return $this->brevoApiKey() !== null
+            || (str_starts_with($this->smtpPassword(), 'xsmtpsib-') && app_env('MAIL_USERNAME') !== '');
     }
 
     public function baseUrl(): string {
