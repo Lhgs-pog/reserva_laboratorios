@@ -1,0 +1,99 @@
+LabHub UNICEPLAC — Pacote para entrega acadêmica
+=================================================
+
+O que vem neste ZIP
+-------------------
+  • Código-fonte completo (PHP, views, CSS, JS, migrations)
+  • Docker + schema MySQL para rodar local
+  • composer.json / composer.lock (dependências NÃO inclusas — ver abaixo)
+
+O que NÃO vem (de propósito, para caber no limite de ~150 MB)
+-------------------------------------------------------------
+  • vendor/     → instalar com: composer install
+  • .git/       → histórico Git
+  • .env        → senhas (cada máquina cria a sua)
+  • uploads/    → fotos de perfil (criada automaticamente pelo Docker)
+
+
+Requisitos na máquina do professor
+----------------------------------
+  • Docker Desktop (recomendado) OU PHP 8.2+ + MySQL/MariaDB
+  • Composer (https://getcomposer.org)
+  • Internet na 1ª execução (baixar dependências)
+
+
+OPÇÃO 1 — Docker (mais fácil, recomendado)
+--------------------------------------------
+
+  1. Descompacte o ZIP em uma pasta (ex.: reserva_laboratorios)
+
+  2. Abra o terminal DENTRO da pasta e rode:
+
+       cp .env.example .env
+       composer install
+       docker compose up --build -d
+
+     Aguarde subir (1ª vez pode demorar alguns minutos).
+
+  3. Acesse no navegador:
+
+       http://localhost:8080
+
+  4. phpMyAdmin (opcional, ver banco):
+
+       http://localhost:8081   (usuário: root / senha: root)
+
+  O MySQL sobe sozinho e importa database/schema.sql com labs e usuários demo.
+
+
+OPÇÃO 2 — Sem Docker (PHP + MySQL manual)
+-----------------------------------------
+
+  1. cp .env.example .env
+  2. composer install
+  3. Crie o banco MySQL "sistema_labs" e importe database/schema.sql
+  4. Ajuste DB_HOST, DB_USER e DB_PASSWORD no .env
+  5. mkdir uploads && chmod 777 uploads
+  6. Na raiz do projeto:
+
+       php -S localhost:8080
+
+  7. Abra http://localhost:8080
+
+
+Contas de demonstração (senha: password)
+----------------------------------------
+  Coordenador : admin@uniceplac.edu.br
+  Professor   : professor@uniceplac.edu.br
+  Suporte TI  : suporte@uniceplac.edu.br
+
+
+Opcional (não necessário para demo local)
+-----------------------------------------
+  • Login Google  → configurar GOOGLE_CLIENT_ID no .env
+  • E-mail        → configurar Resend ou Brevo no .env
+  • Produção      → https://labhub-uniceplac-sp.fly.dev (Supabase PostgreSQL)
+
+
+Problemas comuns
+----------------
+  • "Class not found" / erro ao logar
+    → Rode composer install na pasta do projeto.
+
+  • Docker sobe mas a página dá erro de banco
+    → Confira se .env existe (cp .env.example .env)
+    → Espere o MySQL terminar de iniciar (~30 s) e recarregue.
+
+  • Porta 8080 ocupada
+    → No docker-compose.yml troque "8080:80" por "8888:80"
+      e acesse http://localhost:8888
+
+
+Links
+-----
+  Repositório : https://github.com/Lhgs-pog/reserva_laboratorios
+  Produção    : https://labhub-uniceplac-sp.fly.dev
+  README      : ver README.md na pasta do projeto
+
+Gerar este ZIP de novo (desenvolvedor):
+  ./scripts/gerar-zip-entrega.sh
