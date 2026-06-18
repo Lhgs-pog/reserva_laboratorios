@@ -103,7 +103,7 @@
                         <h6 class="modal-title fw-bold"><i class="bi bi-pencil me-2"></i>Editar usuário</h6>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-                    <form method="POST" action="painel_coordenador.php">
+                    <form method="POST" action="painel_coordenador.php" id="editUserForm<?= $uid ?>">
                         <input type="hidden" name="admin_editar_usuario" value="1">
                         <input type="hidden" name="id_usuario" value="<?= $uid ?>">
                         <div class="modal-body text-start">
@@ -135,21 +135,21 @@
                                 <label class="form-check-label" for="verif<?= $uid ?>">E-mail verificado</label>
                             </div>
                         </div>
-                        <div class="modal-footer">
-                            <?php if (!$isSelf): ?>
-                                <form method="POST" action="painel_coordenador.php" class="me-auto"
-                                    onsubmit="return confirm('Excluir <?= htmlspecialchars(addslashes($u['nome'])) ?>? Esta ação não pode ser desfeita.');">
-                                    <input type="hidden" name="admin_excluir_usuario" value="1">
-                                    <input type="hidden" name="id_usuario" value="<?= $uid ?>">
-                                    <button type="submit" class="btn btn-outline-danger">
-                                        <i class="bi bi-trash"></i> Excluir
-                                    </button>
-                                </form>
-                            <?php endif; ?>
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="submit" class="btn btn-primary">Salvar</button>
-                        </div>
                     </form>
+                    <div class="modal-footer">
+                        <?php if (!$isSelf): ?>
+                            <form method="POST" action="painel_coordenador.php" class="me-auto"
+                                onsubmit="return confirm('Excluir <?= htmlspecialchars(addslashes($u['nome'])) ?>? Esta ação não pode ser desfeita.');">
+                                <input type="hidden" name="admin_excluir_usuario" value="1">
+                                <input type="hidden" name="id_usuario" value="<?= $uid ?>">
+                                <button type="submit" class="btn btn-outline-danger">
+                                    <i class="bi bi-trash"></i> Excluir
+                                </button>
+                            </form>
+                        <?php endif; ?>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" form="editUserForm<?= $uid ?>" class="btn btn-primary">Salvar</button>
+                    </div>
                 </div>
             </div>
         </div>
