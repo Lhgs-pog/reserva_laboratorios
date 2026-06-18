@@ -135,7 +135,7 @@ if (is_array($controller_data)) {
                             <path fill="none" d="M0 0h48v48H0z"></path>
                         </g>
                     </svg>
-                    Entrar com e-mail institucional
+                    Entrar com e-mail e senha
                 </a>
                 
                 <div class="divider">OU</div>

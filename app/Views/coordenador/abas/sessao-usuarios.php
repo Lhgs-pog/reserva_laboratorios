@@ -200,7 +200,7 @@
                         <form method="POST" action="painel_coordenador.php" class="mb-3">
                             <input type="hidden" name="admin_enviar_verificacao" value="1">
                             <input type="hidden" name="id_usuario" value="<?= $uid ?>">
-                            <p class="small text-muted">Reenvia o link para confirmar o e-mail institucional.</p>
+                            <p class="small text-muted">Reenvia o link para confirmar o e-mail.</p>
                             <button type="submit" class="btn btn-outline-success w-100" <?= empty($mail_configurado) ? 'disabled' : '' ?>>
                                 <i class="bi bi-patch-check me-1"></i> Enviar confirmação de e-mail
                             </button>
