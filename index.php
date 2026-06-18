@@ -152,6 +152,9 @@ if (is_array($controller_data)) {
                     </div>
 
                     <button type="submit" id="btnAcessar" class="btn btn-uniceplac w-100 py-2">Acessar Sistema</button>
+                    <div class="text-end mt-2">
+                        <a href="esqueci_senha.php" class="small text-decoration-none text-muted">Esqueci minha senha</a>
+                    </div>
                 </form>
 
                 <div class="text-center mt-4 pt-2 border-top">

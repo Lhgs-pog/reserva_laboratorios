@@ -59,11 +59,12 @@ class AuthController extends BaseController {
         $senha_digitada = $this->request->input('senha');
 
         $pdo = \App\Config\Database::getInstance()->getPDO();
-        $stmt = $pdo->prepare('SELECT id, nome, email, senha, perfil, foto_perfil FROM usuarios WHERE email = ? LIMIT 1');
+        $stmt = $pdo->prepare('SELECT id, nome, email, senha, perfil, foto_perfil FROM usuarios WHERE LOWER(email) = LOWER(?) LIMIT 1');
         $stmt->execute([$email]);
         $usuario = $stmt->fetch(\PDO::FETCH_ASSOC);
 
-        if ($usuario && password_verify($senha_digitada, $usuario['senha'])) {
+        $hash = $usuario['senha'] ?? '';
+        if ($usuario && is_string($hash) && $hash !== '' && password_verify($senha_digitada, $hash)) {
             // [DESABILITADO] Verificação de e-mail obrigatória — não é essencial por enquanto.
             // Reativar quando o fluxo de SMTP estiver configurado em produção.
             // if ($usuario->email_verificado == 0) {
@@ -86,9 +87,40 @@ class AuthController extends BaseController {
 
             $url = $destinos[$usuario['perfil']] ?? 'index.php';
             $this->redirect($url);
+        } elseif ($usuario && (empty($usuario['senha']) || !is_string($usuario['senha']))) {
+            $this->redirectWithError('index.php', 'Sua conta ainda não tem senha. Use «Esqueci minha senha» ou peça à coordenação para reenviar o link.');
         } else {
             $this->redirectWithError('index.php', "E-mail ou senha incorretos!");
         }
+    }
+
+    /**
+     * Solicitar link de redefinição de senha (público)
+     */
+    public function esqueciSenha() {
+        $mensagem = '';
+        $tipo = '';
+
+        if ($this->request->isMethod('post')) {
+            $email = trim($this->request->input('email', ''));
+            if (!app_email_institucional_valido($email)) {
+                $mensagem = 'Informe um e-mail institucional @uniceplac.edu.br (ou subdomínio).';
+                $tipo = 'danger';
+            } else {
+                $usuarioSvc = new UsuarioService();
+                $mailSvc    = new \App\Services\MailService();
+                $user = $usuarioSvc->buscarPorEmail($email);
+                if ($user && $mailSvc->isConfigured()) {
+                    $token = $usuarioSvc->gerarTokenRedefinicao((int) $user['id']);
+                    $mailSvc->enviarRedefinicaoSenha($user['email'], $user['nome'], $token);
+                }
+                // Mesma mensagem sempre — não revela se o e-mail existe
+                $mensagem = 'Se o e-mail estiver cadastrado, enviamos um link para redefinir a senha. Verifique também o spam.';
+                $tipo = 'success';
+            }
+        }
+
+        return compact('mensagem', 'tipo');
     }
 
     /**

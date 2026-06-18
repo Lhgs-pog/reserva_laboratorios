@@ -12,6 +12,13 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once __DIR__ . '/Config/env.php';
+app_load_env(dirname(__DIR__, 1));
+if (app_env('APP_ENV', 'production') === 'production') {
+    ini_set('display_errors', '0');
+    ini_set('log_errors', '1');
+}
+
 // ── Autoload Composer (Google API, PHPMailer via Composer, etc.) ─────────────
 if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
     require_once __DIR__ . '/../vendor/autoload.php';
@@ -50,6 +57,7 @@ function getControllerAndAction() {
         'logout'         => ['AuthController', 'logout'],
         'verificar'      => ['AuthController', 'verificarEmail'],
         'redefinir_senha'=> ['AuthController', 'redefinirSenha'],
+        'esqueci_senha'  => ['AuthController', 'esqueciSenha'],
 
         // Agendamentos
         'Agendamento'          => ['AgendamentoController', 'criar'],
@@ -91,7 +99,7 @@ function executeRouter() {
 
     require_once __DIR__ . '/Config/env.php';
     require_once __DIR__ . '/Config/foto_helpers.php';
-    if (!in_array($action, ['login', 'cadastro'], true) || ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+    if (!in_array($action, ['login', 'cadastro', 'esqueci_senha'], true) || ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
         app_boot_database();
     }
 
